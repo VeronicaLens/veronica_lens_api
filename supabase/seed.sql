@@ -1,0 +1,3 @@
+-- Development and test data only.
+-- Schema changes belong in timestamped files under supabase/migrations.
+-- Never copy production data, personal data, credentials, or secrets into this file.

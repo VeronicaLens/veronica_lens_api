@@ -44,8 +44,8 @@ Route -> Middleware/Schema -> Controller -> Service -> Model -> Supabase
 - O cliente Supabase do usuário recebe o JWT da requisição e respeita RLS.
 - O cliente administrativo usa uma secret key somente em operações privilegiadas no backend.
 
-O Supabase, suas migrations e seeds são adicionados a este repositório em um item separado da
-fundação técnica.
+O Supabase, suas migrations e seeds ficam neste repositório. Consulte a
+[estratégia de versionamento do banco](docs/database.md).
 
 ## Segurança
 
