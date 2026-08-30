@@ -32,6 +32,8 @@ O health check fica disponível em `GET /api/v1/health`.
 
 ## Arquitetura
 
+Consulte a [documentação completa de arquitetura e responsabilidades](docs/architecture.md).
+
 Cada módulo segue o fluxo:
 
 ```text
