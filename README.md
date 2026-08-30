@@ -56,6 +56,8 @@ O Supabase, suas migrations e seeds ficam neste repositório. Consulte a
 
 ## Trabalho no repositório
 
+Consulte as [convenções completas de Git e versionamento](docs/git-conventions.md).
+
 Branches e commits devem conter a chave Jira, por exemplo:
 
 ```text
