@@ -24,7 +24,7 @@ export function createApp(options: AppOptions = {}) {
     app.use(pinoHttp());
   }
 
-  app.use('/api/v1/health', createHealthRouter());
+  app.use(['/health', '/api/v1/health'], createHealthRouter());
   app.use(notFoundHandler);
   app.use(errorHandler);
 

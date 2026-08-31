@@ -18,7 +18,8 @@ npm run dev
 
 No PowerShell, copie o ambiente com `Copy-Item .env.example .env`.
 
-O health check fica disponível em `GET /api/v1/health`.
+O health check fica disponível em `GET /health`. O alias versionado `GET /api/v1/health` é mantido
+para consumidores da API.
 
 ## Scripts
 
