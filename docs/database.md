@@ -25,6 +25,31 @@ release independentes.
 Use sempre a CLI instalada no projeto por meio dos scripts npm. Não é necessária instalação
 global.
 
+## Ambiente local
+
+Com o Docker Desktop iniciado:
+
+```bash
+npm run supabase:start
+npm run supabase:status
+Copy-Item .env.example .env
+npm run supabase:reset
+```
+
+Substitua no `.env` apenas os placeholders pelas chaves mostradas por `supabase:status`. O arquivo
+`.env` é ignorado pelo Git. Para interromper os serviços locais, execute `npm run supabase:stop`.
+
+Para vincular deliberadamente um ambiente remoto, autentique a CLI e descubra a sintaxe da versão
+fixada no projeto antes de executar qualquer comando:
+
+```bash
+npx supabase login
+npx supabase link --help
+```
+
+Nunca versione tokens de acesso, senha do banco, publishable/secret keys reais ou arquivos de
+estado gerados em `supabase/.temp/`.
+
 ## Fluxo de migrations
 
 1. Atualize a branch local e execute `npm run supabase:reset`.

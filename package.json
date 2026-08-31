@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "validate": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build",
     "supabase:start": "supabase start",
+    "supabase:status": "supabase status",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset --local",
     "supabase:lint": "supabase db lint --local",
