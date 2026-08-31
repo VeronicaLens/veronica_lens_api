@@ -21,6 +21,9 @@ No PowerShell, copie o ambiente com `Copy-Item .env.example .env`.
 O health check fica disponível em `GET /health`. O alias versionado `GET /api/v1/health` é mantido
 para consumidores da API.
 
+`GET /api/v1/connectivity/supabase` executa uma leitura técnica controlada na tabela
+`system_status`. A resposta não inclui configuração, credenciais ou detalhes internos do provedor.
+
 ## Scripts
 
 - `npm run dev`: inicia a API com recarga automática.
