@@ -92,7 +92,10 @@ em produção.
 - Nunca execute `db reset --linked` em produção.
 - Não use `--include-seed` em produção.
 
-## Situação inicial
+## Migration técnica inicial
 
-O projeto Supabase remoto está vazio. A primeira migration será criada quando o schema funcional
-for definido, evitando consolidar entidades de domínio prematuramente nesta história de fundação.
+A migration `system_status` cria somente o registro técnico usado para validar a comunicação do
+app e da API com o Supabase. A tabela não armazena dados de usuários, aceita apenas o identificador
+`supabase` e permite a clientes `anon` e `authenticated` somente leitura protegida por RLS.
+
+As entidades funcionais do domínio devem ser adicionadas em migrations posteriores e independentes.
