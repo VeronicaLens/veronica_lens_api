@@ -34,6 +34,7 @@ para consumidores da API.
 ## Arquitetura
 
 Consulte a [documentação completa de arquitetura e responsabilidades](docs/architecture.md).
+As regras de configuração por ambiente estão em [ambientes e gestão de segredos](docs/environment.md).
 
 Cada módulo segue o fluxo:
 
