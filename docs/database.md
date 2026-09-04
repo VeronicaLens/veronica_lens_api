@@ -99,3 +99,6 @@ app e da API com o Supabase. A tabela não armazena dados de usuários, aceita a
 `supabase` e permite a clientes `anon` e `authenticated` somente leitura protegida por RLS.
 
 As entidades funcionais do domínio devem ser adicionadas em migrations posteriores e independentes.
+
+O [modelo de dados inicial](data-model.md) descreve as entidades, relacionamentos e limites de
+acesso implementados para autenticação, aprendizagem, eventos, observações e notificações.
