@@ -2,7 +2,11 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { getEnv } from './config/env.js';
+import { createAuthClient } from './config/supabase.js';
+import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { notFoundHandler } from './shared/http/not-found.js';
@@ -10,6 +14,7 @@ import { notFoundHandler } from './shared/http/not-found.js';
 export interface AppOptions {
   corsOrigin?: string;
   enableLogger?: boolean;
+  supabaseClientFactory?: () => SupabaseClient;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -25,6 +30,12 @@ export function createApp(options: AppOptions = {}) {
   }
 
   app.use(['/health', '/api/v1/health'], createHealthRouter());
+  app.use(
+    '/api/v1/connectivity/supabase',
+    createSupabaseConnectivityRouter(
+      options.supabaseClientFactory ?? (() => createAuthClient(getEnv())),
+    ),
+  );
   app.use(notFoundHandler);
   app.use(errorHandler);
 
