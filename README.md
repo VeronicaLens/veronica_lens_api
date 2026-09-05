@@ -32,12 +32,14 @@ para consumidores da API.
 - `npm run format`: formata os arquivos.
 - `npm run typecheck`: valida os tipos.
 - `npm test`: executa os testes uma vez.
+- `npm run contract:lint`: valida o contrato OpenAPI versionado.
 - `npm run validate`: executa todos os checks usados pelo CI.
 
 ## Arquitetura
 
 Consulte a [documentação completa de arquitetura e responsabilidades](docs/architecture.md).
 As regras de configuração por ambiente estão em [ambientes e gestão de segredos](docs/environment.md).
+O contrato público e seu processo de evolução estão em [contrato HTTP](docs/api-contract.md).
 
 Cada módulo segue o fluxo:
 

@@ -1,0 +1,336 @@
+openapi: 3.1.0
+info:
+  title: VeronicaLens API
+  version: 1.0.0
+  description: Public HTTP contract between the VeronicaLens mobile app and API.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+    description: Version 1
+tags:
+  - name: Health
+    description: Technical API status.
+  - name: Connectivity
+    description: Controlled upstream connectivity status.
+paths:
+  /health:
+    get:
+      security: []
+      tags: [Health]
+      summary: Get API health
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /connectivity/supabase:
+    get:
+      security: []
+      tags: [Connectivity]
+      summary: Get controlled database connectivity status
+      operationId: getSupabaseConnectivity
+      responses:
+        '200':
+          description: Database connectivity was validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupabaseConnectivityResponse'
+        '503':
+          description: Database connectivity is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session access token issued through the VeronicaLens API.
+  responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        details: {}
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, checkedAt, database]
+      properties:
+        status:
+          type: string
+          const: ok
+        checkedAt:
+          type: string
+          format: date-time
+        database:
+          type: string
+          enum: [not_checked]
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Health'
+    SupabaseConnectivity:
+      type: object
+      additionalProperties: false
+      required: [provider, status]
+      properties:
+        provider:
+          type: string
+          const: supabase
+        status:
+          type: string
+          enum: [available, maintenance]
+    SupabaseConnectivityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/SupabaseConnectivity'
+    UserRole:
+      type: string
+      enum: [user, admin]
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName, avatarUrl, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        role:
+          $ref: '#/components/schemas/UserRole'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CelestialObjectType:
+      type: string
+      enum: [moon, planet, star, constellation, deep_sky_object]
+    CelestialObject:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, rightAscensionDegrees, declinationDegrees]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        type:
+          $ref: '#/components/schemas/CelestialObjectType'
+        rightAscensionDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+        declinationDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+        magnitude:
+          type: [number, 'null']
+    AstronomicalEvent:
+      type: object
+      additionalProperties: false
+      required:
+        [id, slug, title, description, eventType, celestialObjectName, startsAt, endsAt, published]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+        eventType:
+          type: string
+          minLength: 1
+          maxLength: 80
+        celestialObjectName:
+          type: [string, 'null']
+          maxLength: 160
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+        published:
+          type: boolean
+    Observation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - userId
+        - astronomicalEventId
+        - title
+        - notes
+        - celestialObjectName
+        - observedAt
+        - latitude
+        - longitude
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        astronomicalEventId:
+          type: [string, 'null']
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        notes:
+          type: string
+        celestialObjectName:
+          type: [string, 'null']
+          maxLength: 160
+        observedAt:
+          type: string
+          format: date-time
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Session:
+      type: object
+      additionalProperties: false
+      required: [id, user, accessToken, refreshToken, tokenType, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+          minLength: 1
+          readOnly: true
+        refreshToken:
+          type: string
+          minLength: 1
+          readOnly: true
+        tokenType:
+          type: string
+          const: bearer
+        expiresAt:
+          type: string
+          format: date-time
+    NotificationType:
+      type: string
+      enum: [astronomical_event, observation_reminder, system]
+    NotificationStatus:
+      type: string
+      enum: [scheduled, sent, read, failed]
+    Notification:
+      type: object
+      additionalProperties: false
+      required:
+        [id, userId, type, status, title, body, astronomicalEventId, scheduledAt, sentAt, readAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        status:
+          $ref: '#/components/schemas/NotificationStatus'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        astronomicalEventId:
+          type: [string, 'null']
+          format: uuid
+        scheduledAt:
+          type: [string, 'null']
+          format: date-time
+        sentAt:
+          type: [string, 'null']
+          format: date-time
+        readAt:
+          type: [string, 'null']
+          format: date-time
