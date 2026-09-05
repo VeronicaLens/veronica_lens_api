@@ -75,7 +75,7 @@ export class JplHorizonsProvider {
     url.searchParams.set('COORD_TYPE', 'GEODETIC');
     url.searchParams.set('SITE_COORD', `'${siteCoordinates}'`);
     url.searchParams.set('TLIST', `'${formatHorizonsInstant(query.observedAt)}'`);
-    url.searchParams.set('QUANTITIES', `'1,4'`);
+    url.searchParams.set('QUANTITIES', `'2,4'`);
     url.searchParams.set('CSV_FORMAT', 'YES');
 
     const payload = (await this.fetchJson(url)) as HorizonsEphemerisResponse;

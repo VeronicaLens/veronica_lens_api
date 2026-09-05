@@ -39,9 +39,9 @@ describe('JplHorizonsProvider', () => {
       Response.json({
         signature: { source: 'NASA/JPL Horizons API', version: '1.2' },
         result: [
-          ' Date__(UT)__HR:MN:SC.fff, , , R.A._(ICRF), DEC__(ICRF), Azi_(a-app), Elev_(a-app),',
+          ' Date__(UT)__HR:MN:SC.fff, , , R.A.__(a-app), DEC_(a-app), Azi_(a-app), Elev_(a-app),',
           '$$SOE',
-          ' 2026-Sep-06 00:00:00.000, , , 07 10 29.49, +23 03 44.5, 91.091908, -80.392333,',
+          ' 2026-Sep-06 00:00:00.000, , , 07 12 05.89, +23 01 08.6, 91.091908, -80.392333,',
           '$$EOE',
         ].join('\n'),
       }),
@@ -67,12 +67,12 @@ describe('JplHorizonsProvider', () => {
         azimuthDegrees: 91.091908,
       },
     });
-    expect(positions[0]?.equatorial.rightAscensionDegrees).toBeCloseTo(107.622875, 8);
-    expect(positions[0]?.equatorial.declinationDegrees).toBeCloseTo(23.0623611111, 8);
+    expect(positions[0]?.equatorial.rightAscensionDegrees).toBeCloseTo(108.0245416667, 8);
+    expect(positions[0]?.equatorial.declinationDegrees).toBeCloseTo(23.0190555556, 8);
 
     const requestedUrl = request.mock.calls[0]?.[0] as URL;
     expect(requestedUrl.searchParams.get('SITE_COORD')).toBe("'-46.6333,-23.5505,0.76'");
-    expect(requestedUrl.searchParams.get('QUANTITIES')).toBe("'1,4'");
+    expect(requestedUrl.searchParams.get('QUANTITIES')).toBe("'2,4'");
   });
 
   it('returns a typed unavailable error without leaking the upstream response', async () => {
