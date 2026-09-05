@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build",
+    "contract:lint": "redocly lint openapi/openapi.yaml --config redocly.yaml",
+    "validate": "npm run contract:lint && npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build",
     "supabase:start": "supabase start",
     "supabase:status": "supabase status",
     "supabase:stop": "supabase stop",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@redocly/cli": "2.51.2",
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/node": "26.4.0",
