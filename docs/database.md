@@ -91,6 +91,17 @@ Os papéis da aplicação são `user` e `admin`. Decisões de autorização usam
 `user_metadata`. Dados não são compartilhados: usuários acessam apenas linhas próprias; admins
 podem consultar todas as linhas conforme policies explícitas e operações auditadas.
 
+### Armazenamento privado de observações
+
+O bucket `observations` é privado. Cada objeto deve usar o caminho
+`<user_id>/<observation_id>/<arquivo>`; as policies de `storage.objects` comparam o primeiro
+segmento com `auth.uid()`. A tabela `observation_media` aplica a mesma convenção por constraint,
+evitando que metadados de um usuário apontem para o namespace de outro.
+
+O bucket aceita imagens e vídeos suportados até 50 MiB. Downloads devem usar a API autenticada do
+Storage ou URLs assinadas geradas pelo backend. A secret key administrativa permanece somente na
+API e nunca integra variáveis `EXPO_PUBLIC_*` ou o bundle mobile.
+
 ## Seeds
 
 `seed.sql` contém somente inserts determinísticos para desenvolvimento e testes. Não inclua
