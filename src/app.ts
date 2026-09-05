@@ -5,7 +5,9 @@ import { pinoHttp } from 'pino-http';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getEnv } from './config/env.js';
-import { createAuthClient } from './config/supabase.js';
+import { createAdminClient, createAuthClient } from './config/supabase.js';
+import { SupabaseAuthModel, type AuthModelPort } from './modules/auth/auth.model.js';
+import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import { errorHandler } from './shared/http/error-handler.js';
@@ -15,6 +17,8 @@ export interface AppOptions {
   corsOrigin?: string;
   enableLogger?: boolean;
   supabaseClientFactory?: () => SupabaseClient;
+  authModel?: AuthModelPort;
+  authenticateHandler?: express.RequestHandler;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -30,6 +34,14 @@ export function createApp(options: AppOptions = {}) {
   }
 
   app.use(['/health', '/api/v1/health'], createHealthRouter());
+  const authModel =
+    options.authModel ??
+    new SupabaseAuthModel(
+      () => createAuthClient(getEnv()),
+      () => createAdminClient(getEnv()),
+      () => getEnv().PASSWORD_RESET_REDIRECT_URL,
+    );
+  app.use('/api/v1/auth', createAuthRouter(authModel, options.authenticateHandler));
   app.use(
     '/api/v1/connectivity/supabase',
     createSupabaseConnectivityRouter(

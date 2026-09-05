@@ -14,6 +14,8 @@ tags:
     description: Technical API status.
   - name: Connectivity
     description: Controlled upstream connectivity status.
+  - name: Authentication
+    description: Account and session operations mediated by the API.
 paths:
   /health:
     get:
@@ -51,6 +53,150 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /auth/sign-up:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Create an account with email and password
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: Account and authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '202':
+          description: Account created and email confirmation required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '400':
+          description: Invalid account data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/sign-in:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Sign in with email and password
+      operationId: signIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/refresh:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Refresh an authenticated session
+      operationId: refreshSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionRequest'
+      responses:
+        '200':
+          description: Session refreshed and refresh token rotated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Refresh token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/sign-out:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Authentication]
+      summary: Revoke all sessions for the authenticated user
+      operationId: signOut
+      responses:
+        '204':
+          description: Sessions revoked.
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/password/recovery:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Request password recovery instructions
+      operationId: requestPasswordRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRecoveryRequest'
+      responses:
+        '202':
+          description: Recovery request accepted without disclosing account existence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '429':
+          description: Email rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/password/update:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Authentication]
+      summary: Update the authenticated user's password
+      operationId: updatePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '204':
+          description: Password updated.
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -292,6 +438,107 @@ components:
         expiresAt:
           type: string
           format: date-time
+    SignUpRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+    SignInRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          writeOnly: true
+    RefreshSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+    PasswordRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    PasswordUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+    SignUpResult:
+      type: object
+      additionalProperties: false
+      required: [user, session, confirmationRequired]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          oneOf:
+            - $ref: '#/components/schemas/Session'
+            - type: 'null'
+        confirmationRequired:
+          type: boolean
+    SignUpResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/SignUpResult'
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Session'
+    Message:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+    MessageResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Message'
     NotificationType:
       type: string
       enum: [astronomical_event, observation_reminder, system]

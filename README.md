@@ -40,6 +40,7 @@ para consumidores da API.
 Consulte a [documentação completa de arquitetura e responsabilidades](docs/architecture.md).
 As regras de configuração por ambiente estão em [ambientes e gestão de segredos](docs/environment.md).
 O contrato público e seu processo de evolução estão em [contrato HTTP](docs/api-contract.md).
+Os fluxos de conta, sessão e recuperação estão em [autenticação](docs/authentication.md).
 
 Cada módulo segue o fluxo:
 

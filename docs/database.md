@@ -62,6 +62,19 @@ estado gerados em `supabase/.temp/`.
 
 Migrations aplicadas não são reescritas. Correções entram em uma nova migration.
 
+### Organização por responsabilidade
+
+Os arquivos continuam ordenados pelo timestamp criado pela CLI, mas cada nova migration trata uma
+única responsabilidade e usa o padrão `<dominio>_<mudanca>`, por exemplo:
+
+- `auth_role_claims`: integração entre Auth, roles e claims confiáveis.
+- `observations_add_visibility`: alterações da tabela e policies de observações.
+- `learning_add_track_order`: alterações do domínio de aprendizagem.
+
+Uma migration já aplicada pode conter várias tabelas por representar o baseline histórico. Ela não
+é dividida retroativamente: novas correções de tabelas, funções, roles, grants ou policies entram em
+arquivos pequenos e independentes.
+
 ## Grants e RLS
 
 Toda tabela em schema exposto deve, na mesma migration:
