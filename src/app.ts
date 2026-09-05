@@ -10,6 +10,8 @@ import { SupabaseAuthModel, type AuthModelPort } from './modules/auth/auth.model
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
+import type { ProfileModelPort } from './modules/profile/profile.model.js';
+import { createProfileRouter } from './modules/profile/profile.routes.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { notFoundHandler } from './shared/http/not-found.js';
 
@@ -19,6 +21,7 @@ export interface AppOptions {
   supabaseClientFactory?: () => SupabaseClient;
   authModel?: AuthModelPort;
   authenticateHandler?: express.RequestHandler;
+  profileModel?: ProfileModelPort;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -42,6 +45,10 @@ export function createApp(options: AppOptions = {}) {
       () => getEnv().PASSWORD_RESET_REDIRECT_URL,
     );
   app.use('/api/v1/auth', createAuthRouter(authModel, options.authenticateHandler));
+  app.use(
+    '/api/v1/profile',
+    createProfileRouter(options.profileModel, options.authenticateHandler),
+  );
   app.use(
     '/api/v1/connectivity/supabase',
     createSupabaseConnectivityRouter(

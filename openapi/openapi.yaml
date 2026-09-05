@@ -16,6 +16,8 @@ tags:
     description: Controlled upstream connectivity status.
   - name: Authentication
     description: Account and session operations mediated by the API.
+  - name: Profile
+    description: Authenticated profile and preference operations.
 paths:
   /health:
     get:
@@ -197,6 +199,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /profile:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Get the authenticated user's profile and preferences
+      operationId: getProfile
+      responses:
+        '200':
+          description: Profile loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Update the authenticated user's profile and preferences
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          description: Invalid profile data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -302,6 +361,99 @@ components:
         updatedAt:
           type: string
           format: date-time
+    MeasurementUnit:
+      type: string
+      enum: [metric, imperial]
+    AppLanguage:
+      type: string
+      enum: [pt-BR, en]
+    Profile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - avatarUrl
+        - locationName
+        - latitude
+        - longitude
+        - notificationsEnabled
+        - measurementUnit
+        - language
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        locationName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        notificationsEnabled:
+          type: boolean
+        measurementUnit:
+          $ref: '#/components/schemas/MeasurementUnit'
+        language:
+          $ref: '#/components/schemas/AppLanguage'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        locationName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        notificationsEnabled:
+          type: boolean
+        measurementUnit:
+          $ref: '#/components/schemas/MeasurementUnit'
+        language:
+          $ref: '#/components/schemas/AppLanguage'
+    ProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Profile'
     CelestialObjectType:
       type: string
       enum: [moon, planet, star, constellation, deep_sky_object]
