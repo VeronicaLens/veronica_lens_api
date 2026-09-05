@@ -18,6 +18,8 @@ tags:
     description: Account and session operations mediated by the API.
   - name: Profile
     description: Authenticated profile and preference operations.
+  - name: Catalog
+    description: Local searchable catalog of celestial objects.
 paths:
   /health:
     get:
@@ -256,6 +258,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /catalog/celestial-objects:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Catalog]
+      summary: Search the local minimum celestial catalog
+      operationId: searchCelestialObjects
+      parameters:
+        - name: q
+          in: query
+          description: Case- and accent-insensitive name or alias fragment.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/CatalogObjectType'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Matching local catalog objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '400':
+          description: Invalid catalog filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -454,13 +501,53 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/Profile'
-    CelestialObjectType:
+    CatalogObjectType:
       type: string
-      enum: [moon, planet, star, constellation, deep_sky_object]
+      enum: [moon, planet, star, constellation]
+    FixedCatalogCoordinates:
+      type: object
+      additionalProperties: false
+      required: [kind, epoch, rightAscensionDegrees, declinationDegrees]
+      properties:
+        kind:
+          type: string
+          const: fixed
+        epoch:
+          type: string
+          const: J2000
+        rightAscensionDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+        declinationDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+    EphemerisCatalogCoordinates:
+      type: object
+      additionalProperties: false
+      required: [kind, provider, providerObjectId]
+      properties:
+        kind:
+          type: string
+          const: ephemeris
+        provider:
+          type: string
+          const: jpl-horizons
+        providerObjectId:
+          type: string
+          minLength: 1
+          maxLength: 100
+    CatalogCoordinates:
+      oneOf:
+        - $ref: '#/components/schemas/FixedCatalogCoordinates'
+        - $ref: '#/components/schemas/EphemerisCatalogCoordinates'
+      discriminator:
+        propertyName: kind
     CelestialObject:
       type: object
       additionalProperties: false
-      required: [id, name, type, rightAscensionDegrees, declinationDegrees]
+      required: [id, name, type, aliases, magnitude, coordinates]
       properties:
         id:
           type: string
@@ -471,17 +558,34 @@ components:
           minLength: 1
           maxLength: 160
         type:
-          $ref: '#/components/schemas/CelestialObjectType'
-        rightAscensionDegrees:
-          type: number
-          minimum: 0
-          exclusiveMaximum: 360
-        declinationDegrees:
-          type: number
-          minimum: -90
-          maximum: 90
+          $ref: '#/components/schemas/CatalogObjectType'
+        aliases:
+          type: array
+          items:
+            type: string
         magnitude:
           type: [number, 'null']
+        coordinates:
+          $ref: '#/components/schemas/CatalogCoordinates'
+    CatalogMeta:
+      type: object
+      additionalProperties: false
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+    CatalogResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CelestialObject'
+        meta:
+          $ref: '#/components/schemas/CatalogMeta'
     AstronomicalEvent:
       type: object
       additionalProperties: false
