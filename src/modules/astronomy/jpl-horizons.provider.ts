@@ -1,7 +1,10 @@
 import type {
   ApparentPosition,
+  AstronomyProvider,
+  AstronomicalEvent,
   CelestialObject,
   CelestialObjectType,
+  EventQuery,
   ObjectSearchQuery,
   PositionQuery,
 } from './astronomy-provider.js';
@@ -32,7 +35,7 @@ export class AstronomyProviderError extends Error {
   }
 }
 
-export class JplHorizonsProvider {
+export class JplHorizonsProvider implements AstronomyProvider {
   constructor(
     private readonly request: typeof fetch = fetch,
     private readonly baseUrl = 'https://ssd.jpl.nasa.gov/api',
@@ -56,6 +59,47 @@ export class JplHorizonsProvider {
 
   async getPositions(query: PositionQuery): Promise<ApparentPosition[]> {
     return Promise.all(query.objectIds.map((objectId) => this.fetchPosition(objectId, query)));
+  }
+
+  async getEvents(query: EventQuery): Promise<AstronomicalEvent[]> {
+    const objectIds = query.objectIds ?? [];
+    const events = await Promise.all(
+      objectIds.map(async (objectId) => await this.fetchEvents(objectId, query)),
+    );
+    return events.flat().sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+  }
+
+  private async fetchEvents(objectId: string, query: EventQuery): Promise<AstronomicalEvent[]> {
+    const url = new URL(`${this.baseUrl}/horizons.api`);
+    const siteCoordinates = [
+      query.observer.longitudeDegrees,
+      query.observer.latitudeDegrees,
+      query.observer.elevationMeters / 1_000,
+    ].join(',');
+
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('COMMAND', `'${objectId}'`);
+    url.searchParams.set('OBJ_DATA', 'NO');
+    url.searchParams.set('MAKE_EPHEM', 'YES');
+    url.searchParams.set('EPHEM_TYPE', 'OBSERVER');
+    url.searchParams.set('CENTER', `'coord@399'`);
+    url.searchParams.set('COORD_TYPE', 'GEODETIC');
+    url.searchParams.set('SITE_COORD', `'${siteCoordinates}'`);
+    url.searchParams.set('START_TIME', `'${formatHorizonsMinute(query.from)}'`);
+    url.searchParams.set('STOP_TIME', `'${formatHorizonsMinute(query.to)}'`);
+    url.searchParams.set('STEP_SIZE', `'5 m TVH'`);
+    url.searchParams.set('QUANTITIES', `'4'`);
+    url.searchParams.set('CSV_FORMAT', 'YES');
+    url.searchParams.set('TIME_DIGITS', 'MINUTES');
+
+    const payload = (await this.fetchJson(url)) as HorizonsEphemerisResponse;
+    if (typeof payload.result !== 'string') {
+      throw new AstronomyProviderError(
+        'INVALID_RESPONSE',
+        'JPL Horizons returned an invalid events payload',
+      );
+    }
+    return parseEvents(payload.result, objectId);
   }
 
   private async fetchPosition(objectId: string, query: PositionQuery): Promise<ApparentPosition> {
@@ -141,6 +185,61 @@ function formatHorizonsInstant(value: Date): string {
   }
 
   return value.toISOString().replace('T', ' ').replace('Z', '');
+}
+
+function formatHorizonsMinute(value: Date): string {
+  return formatHorizonsInstant(value).slice(0, 16);
+}
+
+const eventMarkerTypes = {
+  r: 'rise',
+  t: 'transit',
+  s: 'set',
+} as const;
+
+function parseEvents(result: string, objectId: string): AstronomicalEvent[] {
+  const ephemeris = result.match(/\$\$SOE\s*\n([\s\S]*?)\n\$\$EOE/);
+  if (!ephemeris?.[1]) {
+    throw new AstronomyProviderError(
+      'INVALID_RESPONSE',
+      'JPL Horizons response does not contain event rows',
+    );
+  }
+
+  return ephemeris[1].split('\n').flatMap((line) => {
+    const row = line.split(',').map((value) => value.trim());
+    const marker = row[2]?.toLowerCase();
+    const type = marker ? eventMarkerTypes[marker as keyof typeof eventMarkerTypes] : undefined;
+    if (!type || !row[0]) return [];
+    const startsAt = parseHorizonsMinute(row[0]);
+    return [
+      {
+        id: `${objectId}:${type}:${startsAt}`,
+        type,
+        objectIds: [objectId],
+        startsAt,
+        title: `${objectId} ${type}`,
+        description: `Evento ${type} calculado para a localização informada.`,
+      },
+    ];
+  });
+}
+
+function parseHorizonsMinute(value: string): string {
+  const match = value.match(/^(\d{4})-([A-Z][a-z]{2})-(\d{2}) (\d{2}):(\d{2})$/);
+  const month = match?.[2]
+    ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(
+        match[2],
+      )
+    : -1;
+  if (!match || month < 0) {
+    throw new AstronomyProviderError('INVALID_RESPONSE', 'JPL Horizons event date is invalid');
+  }
+  const year = Number(match[1]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  return new Date(Date.UTC(year, month, day, hour, minute)).toISOString();
 }
 
 function parseEphemeris(result: string, objectId: string, observedAt: Date): ApparentPosition {

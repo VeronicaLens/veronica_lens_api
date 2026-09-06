@@ -30,11 +30,21 @@ por funcionalidade são:
 2. Manter um catálogo local curado para estrelas e objetos de céu profundo necessários ao MVP.
 3. Consumir fornecedores somente pela porta `AstronomyProvider`; controllers, serviços e UI nunca
    recebem payloads da JPL.
-4. Implementar RA/Dec para Alt/Az e geração de eventos no Astro Core, separadamente do provider.
+4. Implementar RA/Dec para Alt/Az no Astro Core e interpretar somente os eventos `r/t/s` dentro do
+   adapter JPL, mantendo a normalização e o cache na composição de domínio.
 5. Não expor chamadas ao fornecedor diretamente ao aplicativo mobile; a API Node.js é a fronteira.
 
-O adapter inicial cobre lookup e posição aparente. O método de eventos pertence ao contrato neutro e
-será atendido pelo provider composto com o Astro Core na história correspondente.
+O adapter cobre lookup, posição aparente e os eventos de nascer, trânsito e ocaso oferecidos pelo
+modo de passos por evento da JPL. O módulo MSC de eventos converte IDs externos para o catálogo
+interno, aplica filtros e mantém cache em memória por período e localização.
+
+## Implementação de eventos — VRLENS-23
+
+- `GET /api/v1/events` exige JWT e aceita período de até 31 dias, tipo e localização do observador.
+- A consulta JPL usa `STEP_SIZE='5 m TVH'`, resolução de cinco minutos e marcadores `r/t/s`.
+- Resultados novos permanecem frescos por 15 minutos. Em falha externa, um resultado equivalente
+  pode ser servido por até 24 horas, desde que o intervalo consultado ainda não tenha terminado.
+- A resposta informa `source`, `stale` e `updatedAt`; sem cache válido, a API retorna erro tipado 503.
 
 ## Fluxo real validado
 
