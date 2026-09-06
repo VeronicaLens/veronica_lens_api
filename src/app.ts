@@ -8,12 +8,18 @@ import { getEnv } from './config/env.js';
 import { createAdminClient, createAuthClient } from './config/supabase.js';
 import { SupabaseAuthModel, type AuthModelPort } from './modules/auth/auth.model.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
-import type { CatalogModelPort } from './modules/catalog/catalog.model.js';
+import { LocalCatalogModel, type CatalogModelPort } from './modules/catalog/catalog.model.js';
 import { createCatalogRouter } from './modules/catalog/catalog.routes.js';
+import { JplHorizonsProvider } from './modules/astronomy/jpl-horizons.provider.js';
 import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import type { ProfileModelPort } from './modules/profile/profile.model.js';
 import { createProfileRouter } from './modules/profile/profile.routes.js';
+import {
+  AstronomySkyGuideModel,
+  type SkyGuideModelPort,
+} from './modules/sky-guide/sky-guide.model.js';
+import { createSkyGuideRouter } from './modules/sky-guide/sky-guide.routes.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { notFoundHandler } from './shared/http/not-found.js';
 
@@ -23,6 +29,7 @@ export interface AppOptions {
   supabaseClientFactory?: () => SupabaseClient;
   authModel?: AuthModelPort;
   catalogModel?: CatalogModelPort;
+  skyGuideModel?: SkyGuideModelPort;
   authenticateHandler?: express.RequestHandler;
   profileModel?: ProfileModelPort;
 }
@@ -48,9 +55,14 @@ export function createApp(options: AppOptions = {}) {
       () => getEnv().PASSWORD_RESET_REDIRECT_URL,
     );
   app.use('/api/v1/auth', createAuthRouter(authModel, options.authenticateHandler));
+  const catalogModel = options.catalogModel ?? new LocalCatalogModel();
+  app.use('/api/v1/catalog', createCatalogRouter(catalogModel, options.authenticateHandler));
   app.use(
-    '/api/v1/catalog',
-    createCatalogRouter(options.catalogModel, options.authenticateHandler),
+    '/api/v1/sky-guide',
+    createSkyGuideRouter(
+      options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, new JplHorizonsProvider()),
+      options.authenticateHandler,
+    ),
   );
   app.use(
     '/api/v1/profile',
