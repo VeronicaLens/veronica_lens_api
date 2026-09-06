@@ -20,6 +20,8 @@ tags:
     description: Authenticated profile and preference operations.
   - name: Catalog
     description: Local searchable catalog of celestial objects.
+  - name: Sky Guide
+    description: Observer-specific celestial positions for the augmented-reality guide.
 paths:
   /health:
     get:
@@ -293,6 +295,38 @@ paths:
                 $ref: '#/components/schemas/CatalogResponse'
         '400':
           description: Invalid catalog filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sky-guide/positions:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Sky Guide]
+      summary: Calculate horizontal positions for the sky guide
+      operationId: getSkyGuidePositions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkyGuidePositionsRequest'
+      responses:
+        '200':
+          description: Available celestial positions for the observer and instant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkyGuidePositionsResponse'
+        '400':
+          description: Invalid observer, instant or object identifiers.
           content:
             application/json:
               schema:
@@ -586,6 +620,100 @@ components:
             $ref: '#/components/schemas/CelestialObject'
         meta:
           $ref: '#/components/schemas/CatalogMeta'
+    SkyGuideObserver:
+      type: object
+      additionalProperties: false
+      required: [latitudeDegrees, longitudeDegrees]
+      properties:
+        latitudeDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitudeDegrees:
+          type: number
+          minimum: -180
+          maximum: 180
+        elevationMeters:
+          type: number
+          minimum: -500
+          maximum: 10000
+          default: 0
+    SkyGuidePositionsRequest:
+      type: object
+      additionalProperties: false
+      required: [objectIds, observedAt, observer]
+      properties:
+        objectIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        observedAt:
+          type: string
+          format: date-time
+        observer:
+          $ref: '#/components/schemas/SkyGuideObserver'
+    HorizontalCoordinates:
+      type: object
+      additionalProperties: false
+      required: [altitudeDegrees, azimuthDegrees]
+      properties:
+        altitudeDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+        azimuthDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+    SkyGuideObjectPosition:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, magnitude, observedAt, horizontal]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        type:
+          $ref: '#/components/schemas/CatalogObjectType'
+        magnitude:
+          type: [number, 'null']
+        observedAt:
+          type: string
+          format: date-time
+        horizontal:
+          $ref: '#/components/schemas/HorizontalCoordinates'
+    SkyGuidePositionsMeta:
+      type: object
+      additionalProperties: false
+      required: [count, unavailableObjectIds]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        unavailableObjectIds:
+          type: array
+          items:
+            type: string
+    SkyGuidePositionsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkyGuideObjectPosition'
+        meta:
+          $ref: '#/components/schemas/SkyGuidePositionsMeta'
     AstronomicalEvent:
       type: object
       additionalProperties: false
