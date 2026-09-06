@@ -84,4 +84,39 @@ describe('JplHorizonsProvider', () => {
       message: 'JPL Horizons request failed with status 503',
     });
   });
+
+  it('normalizes rise, transit and set event rows', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        result: [
+          '$$SOE',
+          ' 2026-Oct-04 04:25, ,r, 62.435852, -1.553993,',
+          ' 2026-Oct-04 09:54,*,t,359.717539, 41.081530,',
+          ' 2026-Oct-04 15:28,*,s,295.502769, -2.290932,',
+          '$$EOE',
+        ].join('\n'),
+      }),
+    );
+    const provider = new JplHorizonsProvider(request);
+
+    const events = await provider.getEvents({
+      from: new Date('2026-10-04T00:00:00.000Z'),
+      to: new Date('2026-10-05T00:00:00.000Z'),
+      objectIds: ['301'],
+      observer: {
+        latitudeDegrees: -23.5505,
+        longitudeDegrees: -46.6333,
+        elevationMeters: 760,
+      },
+    });
+
+    expect(events.map(({ type, startsAt }) => ({ type, startsAt }))).toEqual([
+      { type: 'rise', startsAt: '2026-10-04T04:25:00.000Z' },
+      { type: 'transit', startsAt: '2026-10-04T09:54:00.000Z' },
+      { type: 'set', startsAt: '2026-10-04T15:28:00.000Z' },
+    ]);
+    const requestedUrl = request.mock.calls[0]?.[0] as URL;
+    expect(requestedUrl.searchParams.get('STEP_SIZE')).toBe("'5 m TVH'");
+    expect(requestedUrl.searchParams.get('TIME_DIGITS')).toBe('MINUTES');
+  });
 });

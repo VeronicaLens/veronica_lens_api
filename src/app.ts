@@ -13,6 +13,8 @@ import { createCatalogRouter } from './modules/catalog/catalog.routes.js';
 import { JplHorizonsProvider } from './modules/astronomy/jpl-horizons.provider.js';
 import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
+import { CachedAstronomyEventsModel, type EventsModelPort } from './modules/events/events.model.js';
+import { createEventsRouter } from './modules/events/events.routes.js';
 import type { ProfileModelPort } from './modules/profile/profile.model.js';
 import { createProfileRouter } from './modules/profile/profile.routes.js';
 import {
@@ -30,6 +32,7 @@ export interface AppOptions {
   authModel?: AuthModelPort;
   catalogModel?: CatalogModelPort;
   skyGuideModel?: SkyGuideModelPort;
+  eventsModel?: EventsModelPort;
   authenticateHandler?: express.RequestHandler;
   profileModel?: ProfileModelPort;
 }
@@ -56,11 +59,19 @@ export function createApp(options: AppOptions = {}) {
     );
   app.use('/api/v1/auth', createAuthRouter(authModel, options.authenticateHandler));
   const catalogModel = options.catalogModel ?? new LocalCatalogModel();
+  const astronomyProvider = new JplHorizonsProvider();
   app.use('/api/v1/catalog', createCatalogRouter(catalogModel, options.authenticateHandler));
   app.use(
     '/api/v1/sky-guide',
     createSkyGuideRouter(
-      options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, new JplHorizonsProvider()),
+      options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, astronomyProvider),
+      options.authenticateHandler,
+    ),
+  );
+  app.use(
+    '/api/v1/events',
+    createEventsRouter(
+      options.eventsModel ?? new CachedAstronomyEventsModel(catalogModel, astronomyProvider),
       options.authenticateHandler,
     ),
   );

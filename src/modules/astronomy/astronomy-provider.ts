@@ -50,6 +50,7 @@ export interface AstronomicalEvent {
   peaksAt?: string;
   endsAt?: string;
   title: string;
+  description: string;
 }
 
 export interface ObjectSearchQuery {

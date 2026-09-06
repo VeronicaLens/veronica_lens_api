@@ -20,6 +20,8 @@ tags:
     description: Authenticated profile and preference operations.
   - name: Catalog
     description: Local searchable catalog of celestial objects.
+  - name: Events
+    description: Observer-specific astronomical events with cache freshness metadata.
   - name: Sky Guide
     description: Observer-specific celestial positions for the augmented-reality guide.
 paths:
@@ -333,6 +335,62 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /events:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Events]
+      summary: List upcoming astronomical events for an observer
+      operationId: getUpcomingEvents
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/UpcomingAstronomicalEventType'
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+      responses:
+        '200':
+          description: Normalized observer events. Cache freshness is exposed in metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpcomingEventsResponse'
+        '400':
+          description: Invalid period, type or observer coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Provider unavailable and no valid cache exists.
           content:
             application/json:
               schema:
@@ -714,6 +772,65 @@ components:
             $ref: '#/components/schemas/SkyGuideObjectPosition'
         meta:
           $ref: '#/components/schemas/SkyGuidePositionsMeta'
+    UpcomingAstronomicalEventType:
+      type: string
+      enum: [rise, transit, set]
+    UpcomingAstronomicalEvent:
+      type: object
+      additionalProperties: false
+      required: [id, type, objectIds, startsAt, title, description]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/UpcomingAstronomicalEventType'
+        objectIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        startsAt:
+          type: string
+          format: date-time
+        peaksAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+    UpcomingEventsMeta:
+      type: object
+      additionalProperties: false
+      required: [count, source, stale, updatedAt]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum: [provider, cache]
+        stale:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+    UpcomingEventsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingAstronomicalEvent'
+        meta:
+          $ref: '#/components/schemas/UpcomingEventsMeta'
     AstronomicalEvent:
       type: object
       additionalProperties: false
