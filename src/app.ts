@@ -19,6 +19,11 @@ import { createEventsRouter } from './modules/events/events.routes.js';
 import type { ProfileModelPort } from './modules/profile/profile.model.js';
 import { createProfileRouter } from './modules/profile/profile.routes.js';
 import {
+  createObservationRecommendationRouter,
+  ObservationRecommendationService,
+  type ObservationRecommendationPort,
+} from './modules/planning/index.js';
+import {
   createObservationsRouter,
   type ObservationsModelPort,
 } from './modules/observations/index.js';
@@ -27,6 +32,7 @@ import {
   type SkyGuideModelPort,
 } from './modules/sky-guide/sky-guide.model.js';
 import { createSkyGuideRouter } from './modules/sky-guide/sky-guide.routes.js';
+import { OpenMeteoWeatherProvider, type WeatherProvider } from './modules/weather/index.js';
 import { errorHandler } from './shared/http/error-handler.js';
 import { notFoundHandler } from './shared/http/not-found.js';
 
@@ -41,6 +47,8 @@ export interface AppOptions {
   authenticateHandler?: express.RequestHandler;
   profileModel?: ProfileModelPort;
   observationsModel?: ObservationsModelPort;
+  weatherProvider?: WeatherProvider;
+  observationRecommendationService?: ObservationRecommendationPort;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -66,11 +74,18 @@ export function createApp(options: AppOptions = {}) {
   app.use('/api/v1/auth', createAuthRouter(authModel, options.authenticateHandler));
   const catalogModel = options.catalogModel ?? new LocalCatalogModel();
   const astronomyProvider = new JplHorizonsProvider();
+  const skyGuideModel =
+    options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, astronomyProvider);
   app.use('/api/v1/catalog', createCatalogRouter(catalogModel, options.authenticateHandler));
+  app.use('/api/v1/sky-guide', createSkyGuideRouter(skyGuideModel, options.authenticateHandler));
   app.use(
-    '/api/v1/sky-guide',
-    createSkyGuideRouter(
-      options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, astronomyProvider),
+    '/api/v1/planning',
+    createObservationRecommendationRouter(
+      options.observationRecommendationService ??
+        new ObservationRecommendationService(
+          skyGuideModel,
+          options.weatherProvider ?? new OpenMeteoWeatherProvider(),
+        ),
       options.authenticateHandler,
     ),
   );
