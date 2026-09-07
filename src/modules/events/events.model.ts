@@ -4,6 +4,7 @@ import type {
   EventQuery,
 } from '../astronomy/astronomy-provider.js';
 import type { CatalogModelPort, CatalogObject } from '../catalog/catalog.model.js';
+import type { EventsPersistencePort } from './events.persistence.js';
 
 export interface UpcomingEvent extends AstronomicalEvent {
   objectIds: string[];
@@ -42,6 +43,7 @@ export class CachedAstronomyEventsModel implements EventsModelPort {
   constructor(
     private readonly catalog: CatalogModelPort,
     private readonly provider: AstronomyEventsProvider,
+    private readonly persistence?: EventsPersistencePort,
     private readonly now: () => Date = () => new Date(),
     private readonly freshTtlMs = defaultFreshTtlMs,
     private readonly staleTtlMs = defaultStaleTtlMs,
@@ -55,7 +57,45 @@ export class CachedAstronomyEventsModel implements EventsModelPort {
       return filterResult(cached.result, query.type, 'cache', false);
     }
 
+    const unfilteredQuery = withoutType(query);
+    const persisted = await this.loadPersisted(unfilteredQuery);
+    if (persisted && nowMs - new Date(persisted.updatedAt).getTime() <= this.freshTtlMs) {
+      this.cache.set(key, { result: persisted, storedAt: nowMs });
+      return filterResult(persisted, query.type, 'cache', false);
+    }
+
     try {
+      const result = await this.synchronize(unfilteredQuery);
+      this.cache.set(key, { result, storedAt: nowMs });
+      return filterResult(result, query.type, 'provider', false);
+    } catch (error) {
+      if (cached && nowMs - cached.storedAt <= this.staleTtlMs && query.to.getTime() >= nowMs) {
+        return filterResult(cached.result, query.type, 'cache', true);
+      }
+      if (
+        persisted &&
+        nowMs - new Date(persisted.updatedAt).getTime() <= this.staleTtlMs &&
+        query.to.getTime() >= nowMs
+      ) {
+        this.cache.set(key, { result: persisted, storedAt: nowMs });
+        return filterResult(persisted, query.type, 'cache', true);
+      }
+      throw error;
+    }
+  }
+
+  async synchronize(
+    query: UpcomingEventsQuery,
+    requirePersistence = false,
+  ): Promise<UpcomingEventsResult> {
+    let runId: string | undefined;
+    try {
+      try {
+        runId = await this.persistence?.beginSync(query);
+      } catch (error) {
+        if (requirePersistence) throw error;
+      }
+
       const catalog = await this.catalog.findMany({ limit: 50 });
       const dynamicObjects = catalog.filter(
         (
@@ -69,10 +109,11 @@ export class CachedAstronomyEventsModel implements EventsModelPort {
         dynamicObjects.map((object) => [object.coordinates.providerObjectId, object]),
       );
       const rawEvents = await this.provider.getEvents({ ...query, objectIds: providerIds });
-      const updatedAt = this.now().toISOString();
+      const now = this.now();
+      const updatedAt = now.toISOString();
       const result: UpcomingEventsResult = {
         events: rawEvents
-          .filter((event) => new Date(event.startsAt).getTime() >= nowMs)
+          .filter((event) => new Date(event.startsAt).getTime() >= now.getTime())
           .flatMap((event) => {
             const object = byProviderId.get(event.objectIds[0] ?? '');
             return object ? [normalizeEvent(event, object)] : [];
@@ -81,13 +122,37 @@ export class CachedAstronomyEventsModel implements EventsModelPort {
         stale: false,
         updatedAt,
       };
-      this.cache.set(key, { result, storedAt: nowMs });
-      return filterResult(result, query.type, 'provider', false);
-    } catch (error) {
-      if (cached && nowMs - cached.storedAt <= this.staleTtlMs && query.to.getTime() >= nowMs) {
-        return filterResult(cached.result, query.type, 'cache', true);
+
+      if (this.persistence && runId) {
+        try {
+          await this.persistence.completeSync(runId, query, result.events, updatedAt);
+        } catch (error) {
+          if (requirePersistence) throw error;
+          await this.recordFailure(runId, error, updatedAt);
+        }
+      } else if (requirePersistence) {
+        throw new Error('Astronomical event persistence is required');
       }
+      return result;
+    } catch (error) {
+      if (runId) await this.recordFailure(runId, error, this.now().toISOString());
       throw error;
+    }
+  }
+
+  private async loadPersisted(query: UpcomingEventsQuery): Promise<UpcomingEventsResult | null> {
+    try {
+      return (await this.persistence?.findCached(query)) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async recordFailure(runId: string, error: unknown, completedAt: string): Promise<void> {
+    try {
+      await this.persistence?.failSync(runId, error, completedAt);
+    } catch {
+      // The original synchronization error remains the actionable failure.
     }
   }
 }
@@ -122,6 +187,10 @@ function cacheKey(query: UpcomingEventsQuery): string {
     observer.longitudeDegrees.toFixed(3),
     Math.round(observer.elevationMeters),
   ].join(':');
+}
+
+function withoutType(query: UpcomingEventsQuery): UpcomingEventsQuery {
+  return { from: query.from, to: query.to, observer: query.observer };
 }
 
 function filterResult(

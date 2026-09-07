@@ -108,6 +108,17 @@ API e nunca integra variáveis `EXPO_PUBLIC_*` ou o bundle mobile.
 schema, credenciais, dados pessoais ou dumps de produção. Seeds não são aplicados automaticamente
 em produção.
 
+## Cache persistente de eventos
+
+Eventos vindos da JPL usam uma chave estável composta por provider, objeto, tipo, instante e
+localização arredondada. A constraint única `(provider, provider_event_key)` permite upsert atômico
+e impede duplicidades mesmo quando dois processos tentam sincronizar o mesmo período.
+
+`astronomical_event_sync_runs` registra cobertura, localização, horário, quantidade e estado de cada
+execução. A tabela tem RLS habilitado e não concede acesso a `anon` ou `authenticated`; somente o
+job server-side usa `service_role` com `select`, `insert` e `update`. Sincronizações não removem
+eventos, portanto uma falha não apaga o último cache válido.
+
 ## Ambientes remotos
 
 - Use projetos separados para staging e produção quando o deploy for configurado.

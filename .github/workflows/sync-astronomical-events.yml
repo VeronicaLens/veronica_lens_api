@@ -1,0 +1,57 @@
+name: Synchronize astronomical events
+
+on:
+  schedule:
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+    inputs:
+      latitude:
+        description: Observer latitude
+        required: false
+        default: '-23.5505'
+      longitude:
+        description: Observer longitude
+        required: false
+        default: '-46.6333'
+      elevation:
+        description: Observer elevation in meters
+        required: false
+        default: '760'
+      days:
+        description: Synchronization window (1-31 days)
+        required: false
+        default: '31'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: astronomical-event-sync
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SYNC_LATITUDE: ${{ inputs.latitude || '-23.5505' }}
+      SYNC_LONGITUDE: ${{ inputs.longitude || '-46.6333' }}
+      SYNC_ELEVATION: ${{ inputs.elevation || '760' }}
+      SYNC_DAYS: ${{ inputs.days || '31' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Synchronize JPL Horizons events
+        run: >-
+          npm run events:sync --
+          --latitude "$SYNC_LATITUDE"
+          --longitude "$SYNC_LONGITUDE"
+          --elevation "$SYNC_ELEVATION"
+          --days "$SYNC_DAYS"
