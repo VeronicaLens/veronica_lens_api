@@ -93,6 +93,26 @@ describe('ObservationVisibilityService', () => {
     expect(result.factors.every((factor) => factor.status === 'unavailable')).toBe(true);
   });
 
+  it('returns only the contiguous favorable run containing the best instant', () => {
+    const result = service.evaluate({
+      windowFrom,
+      windowTo,
+      thresholds: { minimumAltitudeDegrees: 30 },
+      samples: [
+        { observedAt: '2026-10-12T22:00:00.000Z', altitudeDegrees: 35 },
+        { observedAt: '2026-10-12T23:00:00.000Z', altitudeDegrees: 10 },
+        { observedAt: '2026-10-13T00:00:00.000Z', altitudeDegrees: 50 },
+        { observedAt: '2026-10-13T01:00:00.000Z', altitudeDegrees: 45 },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      consideredAt: '2026-10-13T00:00:00.000Z',
+      favorableFrom: '2026-10-13T00:00:00.000Z',
+      favorableTo: '2026-10-13T01:00:00.000Z',
+    });
+  });
+
   it('rejects invalid windows, thresholds and condition measurements', () => {
     expect(() =>
       service.evaluate({

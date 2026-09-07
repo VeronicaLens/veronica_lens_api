@@ -26,6 +26,8 @@ tags:
     description: Private observations and captured astrophotos.
   - name: Sky Guide
     description: Observer-specific celestial positions for the augmented-reality guide.
+  - name: Planning
+    description: Observation-window recommendations based on celestial position and weather.
 paths:
   /health:
     get:
@@ -331,6 +333,38 @@ paths:
                 $ref: '#/components/schemas/SkyGuidePositionsResponse'
         '400':
           description: Invalid observer, instant or object identifiers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /planning/observation-window:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Planning]
+      summary: Recommend the best observation window for an object and observer
+      operationId: recommendObservationWindow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservationRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation outcome with supporting factors and data availability.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationRecommendationResponse'
+        '400':
+          description: Invalid object, observer, interval or altitude threshold.
           content:
             application/json:
               schema:
@@ -862,6 +896,102 @@ components:
             $ref: '#/components/schemas/SkyGuideObjectPosition'
         meta:
           $ref: '#/components/schemas/SkyGuidePositionsMeta'
+    ObservationRecommendationRequest:
+      type: object
+      additionalProperties: false
+      required: [objectId, windowFrom, windowTo, observer]
+      properties:
+        objectId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        windowFrom:
+          type: string
+          format: date-time
+        windowTo:
+          type: string
+          format: date-time
+          description: Must be after windowFrom and no more than 24 hours later.
+        observer:
+          $ref: '#/components/schemas/SkyGuideObserver'
+        minimumAltitudeDegrees:
+          type: number
+          minimum: 0
+          maximum: 90
+          default: 30
+    VisibilityFactor:
+      type: object
+      additionalProperties: false
+      required: [code, status, summary]
+      properties:
+        code:
+          type: string
+          enum: [altitude, moon, weather]
+        status:
+          type: string
+          enum: [favorable, unfavorable, unavailable]
+        summary:
+          type: string
+          minLength: 1
+    RecommendedObservationWindow:
+      type: object
+      additionalProperties: false
+      required: [from, to, consideredAt]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        consideredAt:
+          type: string
+          format: date-time
+    ObservationRecommendationMeta:
+      type: object
+      additionalProperties: false
+      required: [evaluatedSamples, sampleIntervalMinutes, weatherAvailable]
+      properties:
+        evaluatedSamples:
+          type: integer
+          minimum: 0
+        sampleIntervalMinutes:
+          type: integer
+          minimum: 1
+        weatherAvailable:
+          type: boolean
+    ObservationRecommendation:
+      type: object
+      additionalProperties: false
+      required: [objectId, objectName, status, recommendedWindow, factors, summary, meta]
+      properties:
+        objectId:
+          type: string
+        objectName:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [recommended, no_favorable_window, insufficient_data]
+        recommendedWindow:
+          oneOf:
+            - $ref: '#/components/schemas/RecommendedObservationWindow'
+            - type: 'null'
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisibilityFactor'
+        summary:
+          type: string
+          minLength: 1
+        meta:
+          $ref: '#/components/schemas/ObservationRecommendationMeta'
+    ObservationRecommendationResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ObservationRecommendation'
     UpcomingAstronomicalEventType:
       type: string
       enum: [rise, transit, set]

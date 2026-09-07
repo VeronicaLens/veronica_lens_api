@@ -24,3 +24,15 @@ valores padrão conservadores e podem ser configurados em cada avaliação.
 Use `ObservationVisibilityService.evaluate` depois de obter amostras para a janela desejada. O
 serviço recebe somente tipos de domínio; payloads específicos de provedores devem ser convertidos
 antes da chamada.
+
+O endpoint autenticado `POST /api/v1/planning/observation-window` recebe o objeto do catálogo, o
+local do observador, uma janela de até 24 horas e a altitude mínima desejada. A aplicação amostra
+a posição do astro a cada duas horas, combina a previsão climática horária quando disponível e
+retorna um dos estados abaixo:
+
+- `recommended`: há uma janela favorável e seus fatores são apresentados;
+- `no_favorable_window`: existem dados suficientes, mas as condições não atendem às regras;
+- `insufficient_data`: não há posições suficientes para produzir uma recomendação segura.
+
+A indisponibilidade isolada do clima não inventa dados: ela é indicada em `meta.weatherAvailable`
+e na justificativa, enquanto a recomendação pode continuar baseada na posição conhecida do astro.

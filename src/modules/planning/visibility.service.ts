@@ -110,15 +110,33 @@ export class ObservationVisibilityService {
     const representative = candidates.reduce((best, current) =>
       current.sample.altitudeDegrees > best.sample.altitudeDegrees ? current : best,
     );
+    const recommendedRun = favorableRuns(samples).find((run) => run.includes(representative));
 
     return {
       favorable: favorableSamples.length > 0,
       consideredAt: representative.sample.observedAt,
-      favorableFrom: favorableSamples.at(0)?.sample.observedAt ?? null,
-      favorableTo: favorableSamples.at(-1)?.sample.observedAt ?? null,
+      favorableFrom: recommendedRun?.at(0)?.sample.observedAt ?? null,
+      favorableTo: recommendedRun?.at(-1)?.sample.observedAt ?? null,
       factors: representative.factors,
     };
   }
+}
+
+function favorableRuns(samples: AssessedSample[]): AssessedSample[][] {
+  const runs: AssessedSample[][] = [];
+  let activeRun: AssessedSample[] | null = null;
+  for (const sample of samples) {
+    if (!sample.favorable) {
+      activeRun = null;
+      continue;
+    }
+    if (!activeRun) {
+      activeRun = [];
+      runs.push(activeRun);
+    }
+    activeRun.push(sample);
+  }
+  return runs;
 }
 
 function resolveThresholds(thresholds: VisibilityThresholds): ResolvedThresholds {
