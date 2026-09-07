@@ -14,6 +14,7 @@ import { JplHorizonsProvider } from './modules/astronomy/jpl-horizons.provider.j
 import { createSupabaseConnectivityRouter } from './modules/connectivity/supabase-connectivity.routes.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import { CachedAstronomyEventsModel, type EventsModelPort } from './modules/events/events.model.js';
+import { SupabaseEventsPersistence } from './modules/events/events.persistence.js';
 import { createEventsRouter } from './modules/events/events.routes.js';
 import type { ProfileModelPort } from './modules/profile/profile.model.js';
 import { createProfileRouter } from './modules/profile/profile.routes.js';
@@ -71,7 +72,12 @@ export function createApp(options: AppOptions = {}) {
   app.use(
     '/api/v1/events',
     createEventsRouter(
-      options.eventsModel ?? new CachedAstronomyEventsModel(catalogModel, astronomyProvider),
+      options.eventsModel ??
+        new CachedAstronomyEventsModel(
+          catalogModel,
+          astronomyProvider,
+          new SupabaseEventsPersistence(() => createAdminClient(getEnv())),
+        ),
       options.authenticateHandler,
     ),
   );
