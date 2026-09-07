@@ -19,6 +19,10 @@ import { createEventsRouter } from './modules/events/events.routes.js';
 import type { ProfileModelPort } from './modules/profile/profile.model.js';
 import { createProfileRouter } from './modules/profile/profile.routes.js';
 import {
+  createObservationsRouter,
+  type ObservationsModelPort,
+} from './modules/observations/index.js';
+import {
   AstronomySkyGuideModel,
   type SkyGuideModelPort,
 } from './modules/sky-guide/sky-guide.model.js';
@@ -36,6 +40,7 @@ export interface AppOptions {
   eventsModel?: EventsModelPort;
   authenticateHandler?: express.RequestHandler;
   profileModel?: ProfileModelPort;
+  observationsModel?: ObservationsModelPort;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -84,6 +89,10 @@ export function createApp(options: AppOptions = {}) {
   app.use(
     '/api/v1/profile',
     createProfileRouter(options.profileModel, options.authenticateHandler),
+  );
+  app.use(
+    '/api/v1/observations',
+    createObservationsRouter(options.observationsModel, options.authenticateHandler),
   );
   app.use(
     '/api/v1/connectivity/supabase',

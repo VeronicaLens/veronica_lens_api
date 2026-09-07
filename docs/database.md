@@ -102,6 +102,10 @@ O bucket aceita imagens e vídeos suportados até 50 MiB. Downloads devem usar a
 Storage ou URLs assinadas geradas pelo backend. A secret key administrativa permanece somente na
 API e nunca integra variáveis `EXPO_PUBLIC_*` ou o bundle mobile.
 
+Astrofotos são enviadas pela API usando o JWT do usuário, portanto as mesmas policies RLS são
+avaliadas. `observation_media.capture_metadata` registra o dispositivo e os parâmetros efetivamente
+aplicados; `user_id`, `captured_at` e `observation_id` permanecem colunas estruturadas e indexáveis.
+
 ## Seeds
 
 `seed.sql` contém somente inserts determinísticos para desenvolvimento e testes. Não inclua
