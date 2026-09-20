@@ -405,6 +405,98 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /notifications/preferences:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: List the authenticated user's event alert preferences
+      operationId: listNotificationPreferences
+      responses:
+        '200':
+          description: Event alert preferences for the authenticated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferencesResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Save event alert preferences for the authenticated user
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferencesRequest' }
+      responses:
+        '200':
+          description: Saved event alert preferences.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferencesResponse' }
+        '400':
+          description: Invalid notification preferences.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /notifications/devices:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Register the authenticated user's device for push alerts
+      operationId: registerPushDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushDeviceRequest' }
+      responses:
+        '204': { description: Device registered. }
+        '400':
+          description: Invalid push device.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Deactivate the authenticated user's push device on logout
+      operationId: unregisterPushDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushDeviceTokenRequest' }
+      responses:
+        '204': { description: Device deactivated. }
+        '400':
+          description: Invalid push device.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /observations/{observationId}/photos/{photoId}:
     put:
       security:
@@ -602,6 +694,48 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, minimum: 1, maximum: 50 }
         hasMore: { type: boolean }
+    EventPreference:
+      type: object
+      additionalProperties: false
+      required: [eventType, enabled, leadMinutes]
+      properties:
+        eventType: { type: string, minLength: 1, maxLength: 80 }
+        enabled: { type: boolean }
+        leadMinutes: { type: integer, minimum: 0, maximum: 43200 }
+    NotificationPreferencesRequest:
+      type: object
+      additionalProperties: false
+      required: [preferences]
+      properties:
+        preferences:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/EventPreference' }
+    NotificationPreferencesResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EventPreference' }
+    PushDevicePlatform:
+      type: string
+      enum: [android, ios]
+    PushDeviceRequest:
+      type: object
+      additionalProperties: false
+      required: [token, platform]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 512 }
+        platform: { $ref: '#/components/schemas/PushDevicePlatform' }
+    PushDeviceTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 512 }
     Error:
       type: object
       additionalProperties: false

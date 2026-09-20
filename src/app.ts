@@ -28,6 +28,10 @@ import {
   type ObservationsModelPort,
 } from './modules/observations/index.js';
 import {
+  createNotificationsRouter,
+  type NotificationsModelPort,
+} from './modules/notifications/index.js';
+import {
   AstronomySkyGuideModel,
   type SkyGuideModelPort,
 } from './modules/sky-guide/sky-guide.model.js';
@@ -47,6 +51,7 @@ export interface AppOptions {
   authenticateHandler?: express.RequestHandler;
   profileModel?: ProfileModelPort;
   observationsModel?: ObservationsModelPort;
+  notificationsModel?: NotificationsModelPort;
   weatherProvider?: WeatherProvider;
   observationRecommendationService?: ObservationRecommendationPort;
 }
@@ -108,6 +113,10 @@ export function createApp(options: AppOptions = {}) {
   app.use(
     '/api/v1/observations',
     createObservationsRouter(options.observationsModel, options.authenticateHandler),
+  );
+  app.use(
+    '/api/v1/notifications',
+    createNotificationsRouter(options.notificationsModel, options.authenticateHandler),
   );
   app.use(
     '/api/v1/connectivity/supabase',
