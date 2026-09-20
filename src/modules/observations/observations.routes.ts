@@ -16,6 +16,15 @@ export function createObservationsRouter(
   authenticateHandler: RequestHandler = authenticate,
 ): Router {
   const router = Router();
+  router.get(
+    '/',
+    authenticateHandler,
+    asyncHandler(async (request, response) => {
+      if (!request.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required');
+      const data = await model.list(request.auth.supabase, request.auth.userId);
+      response.status(200).json({ data });
+    }),
+  );
   router.put(
     '/:observationId/photos/:photoId',
     authenticateHandler,

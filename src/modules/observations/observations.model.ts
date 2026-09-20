@@ -19,7 +19,38 @@ export interface ObservationPhotoResult {
   capturedAt: string;
 }
 
+export interface ObservationHistoryItem {
+  id: string;
+  title: string;
+  notes: string;
+  celestialObjectName: string | null;
+  observedAt: string;
+  latitude: number | null;
+  longitude: number | null;
+  photos: Array<{
+    id: string;
+    storagePath: string;
+    capturedAt: string | null;
+  }>;
+}
+
+interface ObservationHistoryRow {
+  id: string;
+  title: string;
+  notes: string;
+  celestial_object_name: string | null;
+  observed_at: string;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  observation_media: Array<{
+    id: string;
+    storage_path: string;
+    captured_at: string | null;
+  }> | null;
+}
+
 export interface ObservationsModelPort {
+  list(client: SupabaseClient, userId: string): Promise<ObservationHistoryItem[]>;
   savePhoto(
     client: SupabaseClient,
     input: SaveObservationPhotoInput,
@@ -27,6 +58,33 @@ export interface ObservationsModelPort {
 }
 
 export class SupabaseObservationsModel implements ObservationsModelPort {
+  async list(client: SupabaseClient, userId: string): Promise<ObservationHistoryItem[]> {
+    const { data, error } = await client
+      .from('observations')
+      .select(
+        'id, title, notes, celestial_object_name, observed_at, latitude, longitude, observation_media(id, storage_path, captured_at)',
+      )
+      .eq('user_id', userId)
+      .order('observed_at', { ascending: false });
+    if (error) throw providerError('Observation history could not be loaded');
+    const observations = (data ?? []) as unknown as ObservationHistoryRow[];
+
+    return observations.map((observation) => ({
+      id: observation.id,
+      title: observation.title,
+      notes: observation.notes,
+      celestialObjectName: observation.celestial_object_name,
+      observedAt: observation.observed_at,
+      latitude: observation.latitude === null ? null : Number(observation.latitude),
+      longitude: observation.longitude === null ? null : Number(observation.longitude),
+      photos: (observation.observation_media ?? []).map((photo) => ({
+        id: photo.id,
+        storagePath: photo.storage_path,
+        capturedAt: photo.captured_at,
+      })),
+    }));
+  }
+
   async savePhoto(
     client: SupabaseClient,
     input: SaveObservationPhotoInput,
