@@ -30,37 +30,50 @@ const metadata = {
 
 describe('observation photo routes', () => {
   it('lists only the authenticated user observation history', async () => {
-    const list = vi.fn<ObservationsModelPort['list']>().mockResolvedValue([
-      {
-        id: '71000000-0000-4000-8000-000000000001',
-        title: 'Astrofoto da Lua',
-        notes: 'Céu limpo',
-        celestialObjectName: 'Lua',
-        observedAt: metadata.capturedAt,
-        latitude: -23.55,
-        longitude: -46.63,
-        photos: [
-          {
-            id: '71000000-0000-4000-8000-000000000002',
-            storagePath: 'user-id/observation/photo.jpg',
-            capturedAt: metadata.capturedAt,
-          },
-        ],
-      },
-    ]);
+    const list = vi.fn<ObservationsModelPort['list']>().mockResolvedValue({
+      data: [
+        {
+          id: '71000000-0000-4000-8000-000000000001',
+          title: 'Astrofoto da Lua',
+          notes: 'Céu limpo',
+          celestialObjectName: 'Lua',
+          observedAt: metadata.capturedAt,
+          latitude: -23.55,
+          longitude: -46.63,
+          photos: [
+            {
+              id: '71000000-0000-4000-8000-000000000002',
+              storagePath: 'user-id/observation/photo.jpg',
+              capturedAt: metadata.capturedAt,
+              thumbnailUrl: 'https://storage.example/photo.jpg',
+            },
+          ],
+        },
+      ],
+      page: 2,
+      pageSize: 10,
+      hasMore: true,
+    });
     const response = await request(
       createApp({
         enableLogger: false,
         authenticateHandler: authenticate,
         observationsModel: { list, savePhoto: vi.fn() },
       }),
-    ).get('/api/v1/observations');
+    ).get('/api/v1/observations?page=2&pageSize=10');
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       data: [expect.objectContaining({ id: '71000000-0000-4000-8000-000000000001' })],
+      page: 2,
+      pageSize: 10,
+      hasMore: true,
     });
-    expect(list).toHaveBeenCalledWith(expect.anything(), 'user-id');
+    expect(list).toHaveBeenCalledWith(expect.anything(), {
+      userId: 'user-id',
+      page: 2,
+      pageSize: 10,
+    });
   });
 
   it('passes authenticated binary photos and capture metadata to storage', async () => {

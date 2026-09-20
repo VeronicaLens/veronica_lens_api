@@ -5,6 +5,7 @@ import { AppError } from '../../shared/errors/app-error.js';
 import { asyncHandler } from '../../shared/http/async-handler.js';
 import { SupabaseObservationsModel, type ObservationsModelPort } from './observations.model.js';
 import {
+  observationHistoryQuerySchema,
   observationPhotoMetadataSchema,
   observationPhotoParamsSchema,
 } from './observations.schemas.js';
@@ -21,8 +22,15 @@ export function createObservationsRouter(
     authenticateHandler,
     asyncHandler(async (request, response) => {
       if (!request.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required');
-      const data = await model.list(request.auth.supabase, request.auth.userId);
-      response.status(200).json({ data });
+      const query = observationHistoryQuerySchema.safeParse(request.query);
+      if (!query.success) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Observation history query is invalid');
+      }
+      const result = await model.list(request.auth.supabase, {
+        userId: request.auth.userId,
+        ...query.data,
+      });
+      response.status(200).json(result);
     }),
   );
   router.put(

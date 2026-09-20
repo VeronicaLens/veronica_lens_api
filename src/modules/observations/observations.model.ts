@@ -31,7 +31,21 @@ export interface ObservationHistoryItem {
     id: string;
     storagePath: string;
     capturedAt: string | null;
+    thumbnailUrl: string | null;
   }>;
+}
+
+export interface ObservationHistoryPage {
+  data: ObservationHistoryItem[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export interface ListObservationHistoryInput {
+  userId: string;
+  page: number;
+  pageSize: number;
 }
 
 interface ObservationHistoryRow {
@@ -50,7 +64,7 @@ interface ObservationHistoryRow {
 }
 
 export interface ObservationsModelPort {
-  list(client: SupabaseClient, userId: string): Promise<ObservationHistoryItem[]>;
+  list(client: SupabaseClient, input: ListObservationHistoryInput): Promise<ObservationHistoryPage>;
   savePhoto(
     client: SupabaseClient,
     input: SaveObservationPhotoInput,
@@ -58,31 +72,56 @@ export interface ObservationsModelPort {
 }
 
 export class SupabaseObservationsModel implements ObservationsModelPort {
-  async list(client: SupabaseClient, userId: string): Promise<ObservationHistoryItem[]> {
+  async list(
+    client: SupabaseClient,
+    input: ListObservationHistoryInput,
+  ): Promise<ObservationHistoryPage> {
+    const start = (input.page - 1) * input.pageSize;
     const { data, error } = await client
       .from('observations')
       .select(
         'id, title, notes, celestial_object_name, observed_at, latitude, longitude, observation_media(id, storage_path, captured_at)',
       )
-      .eq('user_id', userId)
-      .order('observed_at', { ascending: false });
+      .eq('user_id', input.userId)
+      .order('observed_at', { ascending: false })
+      .range(start, start + input.pageSize);
     if (error) throw providerError('Observation history could not be loaded');
     const observations = (data ?? []) as unknown as ObservationHistoryRow[];
+    const items = observations.slice(0, input.pageSize);
+    const storagePaths = items.flatMap((observation) =>
+      (observation.observation_media ?? []).map((photo) => photo.storage_path),
+    );
+    const thumbnailUrlByPath = new Map<string, string>();
+    if (storagePaths.length > 0) {
+      const { data: signedPhotos, error: signError } = await client.storage
+        .from('observations')
+        .createSignedUrls(storagePaths, 900);
+      if (signError) throw providerError('Observation photos could not be accessed');
+      for (const photo of signedPhotos ?? []) {
+        if (photo.path && photo.signedUrl) thumbnailUrlByPath.set(photo.path, photo.signedUrl);
+      }
+    }
 
-    return observations.map((observation) => ({
-      id: observation.id,
-      title: observation.title,
-      notes: observation.notes,
-      celestialObjectName: observation.celestial_object_name,
-      observedAt: observation.observed_at,
-      latitude: observation.latitude === null ? null : Number(observation.latitude),
-      longitude: observation.longitude === null ? null : Number(observation.longitude),
-      photos: (observation.observation_media ?? []).map((photo) => ({
-        id: photo.id,
-        storagePath: photo.storage_path,
-        capturedAt: photo.captured_at,
+    return {
+      data: items.map((observation) => ({
+        id: observation.id,
+        title: observation.title,
+        notes: observation.notes,
+        celestialObjectName: observation.celestial_object_name,
+        observedAt: observation.observed_at,
+        latitude: observation.latitude === null ? null : Number(observation.latitude),
+        longitude: observation.longitude === null ? null : Number(observation.longitude),
+        photos: (observation.observation_media ?? []).map((photo) => ({
+          id: photo.id,
+          storagePath: photo.storage_path,
+          capturedAt: photo.captured_at,
+          thumbnailUrl: thumbnailUrlByPath.get(photo.storage_path) ?? null,
+        })),
       })),
-    }));
+      page: input.page,
+      pageSize: input.pageSize,
+      hasMore: observations.length > input.pageSize,
+    };
   }
 
   async savePhoto(

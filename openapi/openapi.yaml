@@ -382,6 +382,13 @@ paths:
       tags: [Observations]
       summary: List the authenticated user's observation history
       operationId: listObservations
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
       responses:
         '200':
           description: Private observations ordered from most to least recent.
@@ -560,11 +567,15 @@ components:
     ObservationHistoryPhoto:
       type: object
       additionalProperties: false
-      required: [id, storagePath, capturedAt]
+      required: [id, storagePath, capturedAt, thumbnailUrl]
       properties:
         id: { type: string, format: uuid }
         storagePath: { type: string, minLength: 1, maxLength: 1024 }
         capturedAt: { type: [string, 'null'], format: date-time }
+        thumbnailUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived signed URL for the authenticated user's private media.
     ObservationHistoryItem:
       type: object
       additionalProperties: false
@@ -583,11 +594,14 @@ components:
     ObservationHistoryResponse:
       type: object
       additionalProperties: false
-      required: [data]
+      required: [data, page, pageSize, hasMore]
       properties:
         data:
           type: array
           items: { $ref: '#/components/schemas/ObservationHistoryItem' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 50 }
+        hasMore: { type: boolean }
     Error:
       type: object
       additionalProperties: false
