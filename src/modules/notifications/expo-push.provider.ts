@@ -13,7 +13,11 @@ export class ExpoPushProvider implements PushProviderPort {
         sound: 'default',
         title: candidate.eventTitle,
         body: candidate.eventDescription,
-        data: { eventId: candidate.eventId, eventType: candidate.eventType },
+        data: {
+          eventId: candidate.eventId,
+          eventType: candidate.eventType,
+          url: `veronicalens://events/${encodeURIComponent(candidate.eventId)}`,
+        },
       }),
     });
     const body = await response.json().catch(() => null);
