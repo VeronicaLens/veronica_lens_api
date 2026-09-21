@@ -36,6 +36,19 @@ Cada tentativa gera uma linha em `astronomical_event_sync_runs`. Falhas registra
 sanitizados, mantêm os eventos válidos anteriores e fazem o processo terminar com código diferente
 de zero.
 
+## Entrega de notificações
+
+Após sincronizar os eventos, execute o worker de entrega ao menos a cada cinco minutos para avaliar
+eventos futuros dentro da antecedência escolhida por cada usuário:
+
+```bash
+npm run notifications:dispatch
+```
+
+O worker usa a chave administrativa apenas no servidor. Cada par evento/dispositivo é reservado em
+`notification_deliveries` antes do envio para evitar duplicatas; falhas individuais são registradas e
+não interrompem os demais destinatários.
+
 ## Falhas e rotação
 
 A API falha antes de abrir a porta quando a configuração obrigatória é inválida, informando apenas

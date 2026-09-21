@@ -25,7 +25,8 @@
     "supabase:lint": "supabase db lint --local",
     "supabase:test": "supabase test db",
     "auth:verify:local": "npm run build && node scripts/verify-auth-local.mjs",
-    "events:sync": "tsx src/jobs/sync-astronomical-events.ts"
+    "events:sync": "tsx src/jobs/sync-astronomical-events.ts",
+    "notifications:dispatch": "tsx src/jobs/dispatch-push-notifications.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",
