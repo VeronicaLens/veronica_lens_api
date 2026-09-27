@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { AppError } from '../../shared/errors/app-error.js';
+
 export interface ProfileRow {
   id: string;
   display_name: string | null;
@@ -19,6 +21,12 @@ export interface ProfileQueryResult {
   error: { code?: string; message: string } | null;
 }
 
+export interface UploadAvatarInput {
+  userId: string;
+  contentType: string;
+  bytes: Buffer;
+}
+
 export interface ProfileModelPort {
   findByUserId(client: SupabaseClient, userId: string): Promise<ProfileQueryResult>;
   updateByUserId(
@@ -26,6 +34,7 @@ export interface ProfileModelPort {
     userId: string,
     values: Record<string, unknown>,
   ): Promise<ProfileQueryResult>;
+  uploadAvatar(client: SupabaseClient, input: UploadAvatarInput): Promise<string>;
 }
 
 const profileColumns =
@@ -48,4 +57,24 @@ export class SupabaseProfileModel implements ProfileModelPort {
       .select(profileColumns)
       .single();
   }
+
+  async uploadAvatar(client: SupabaseClient, input: UploadAvatarInput): Promise<string> {
+    const path = `${input.userId}/avatar.${extension(input.contentType)}`;
+    const { error } = await client.storage.from('avatars').upload(path, input.bytes, {
+      contentType: input.contentType,
+      upsert: true,
+    });
+    if (error) throw new AppError(503, 'AVATAR_STORAGE_UNAVAILABLE', 'Avatar could not be uploaded');
+
+    const { data } = client.storage.from('avatars').getPublicUrl(path);
+    return `${data.publicUrl}?v=${Date.now()}`;
+  }
+}
+
+function extension(contentType: string): string {
+  return (
+    ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as Record<string, string>)[
+      contentType
+    ] ?? 'jpg'
+  );
 }

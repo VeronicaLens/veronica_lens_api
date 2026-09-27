@@ -54,4 +54,16 @@ export class ProfileService {
   async update(client: SupabaseClient, userId: string, input: UpdateProfileInput) {
     return requireProfile(await this.model.updateByUserId(client, userId, toDatabaseValues(input)));
   }
+
+  async uploadAvatar(
+    client: SupabaseClient,
+    userId: string,
+    contentType: string,
+    bytes: Buffer,
+  ) {
+    const avatarUrl = await this.model.uploadAvatar(client, { userId, contentType, bytes });
+    return requireProfile(
+      await this.model.updateByUserId(client, userId, { avatar_url: avatarUrl }),
+    );
+  }
 }

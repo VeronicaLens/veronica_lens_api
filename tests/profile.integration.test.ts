@@ -34,6 +34,7 @@ function modelWith(overrides: Partial<ProfileModelPort> = {}): ProfileModelPort 
   return {
     findByUserId: vi.fn().mockResolvedValue({ data: row, error: null }),
     updateByUserId: vi.fn().mockResolvedValue({ data: row, error: null }),
+    uploadAvatar: vi.fn().mockResolvedValue('https://cdn.test/avatars/user.jpg'),
     ...overrides,
   };
 }
@@ -119,5 +120,50 @@ describe('profile routes', () => {
       createApp({ enableLogger: false, profileModel: modelWith() }),
     ).get('/api/v1/profile');
     expect(response.status).toBe(401);
+  });
+
+  it('uploads an avatar and returns the updated profile', async () => {
+    const uploadAvatar = vi.fn().mockResolvedValue('https://cdn.test/avatars/user.jpg?v=1');
+    const updateByUserId = vi
+      .fn()
+      .mockResolvedValue({ data: { ...row, avatar_url: 'https://cdn.test/avatars/user.jpg?v=1' }, error: null });
+    const response = await request(
+      createApp({
+        enableLogger: false,
+        authenticateHandler: authenticate,
+        profileModel: modelWith({ uploadAvatar, updateByUserId }),
+      }),
+    )
+      .put('/api/v1/profile/avatar')
+      .set('Content-Type', 'image/jpeg')
+      .send(Buffer.from('fake-jpeg-bytes'));
+
+    expect(response.status).toBe(200);
+    expect(uploadAvatar).toHaveBeenCalledWith(expect.anything(), {
+      userId: row.id,
+      contentType: 'image/jpeg',
+      bytes: Buffer.from('fake-jpeg-bytes'),
+    });
+    expect(updateByUserId).toHaveBeenCalledWith(expect.anything(), row.id, {
+      avatar_url: 'https://cdn.test/avatars/user.jpg?v=1',
+    });
+    expect(response.body).toMatchObject({
+      data: { avatarUrl: 'https://cdn.test/avatars/user.jpg?v=1' },
+    });  });
+
+  it('rejects an avatar upload with an unsupported content type', async () => {
+    const response = await request(
+      createApp({
+        enableLogger: false,
+        authenticateHandler: authenticate,
+        profileModel: modelWith(),
+      }),
+    )
+      .put('/api/v1/profile/avatar')
+      .set('Content-Type', 'application/pdf')
+      .send(Buffer.from('not-an-image'));
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
   });
 });

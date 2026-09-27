@@ -29,4 +29,26 @@ export class ProfileController {
       .status(200)
       .json({ data: await this.service.update(context.supabase, context.userId, parsed.data) });
   };
+
+  uploadAvatar = async (request: Request, response: Response): Promise<void> => {
+    const contentType = request.header('content-type')?.split(';')[0]?.trim().toLowerCase();
+    const avatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (
+      !contentType ||
+      !avatarTypes.includes(contentType) ||
+      !Buffer.isBuffer(request.body) ||
+      request.body.length === 0
+    ) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Avatar upload request is invalid');
+    }
+    const context = auth(request);
+    response.status(200).json({
+      data: await this.service.uploadAvatar(
+        context.supabase,
+        context.userId,
+        contentType,
+        request.body,
+      ),
+    });
+  };
 }
