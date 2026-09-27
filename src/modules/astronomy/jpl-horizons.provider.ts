@@ -35,6 +35,38 @@ export class AstronomyProviderError extends Error {
   }
 }
 
+// JPL Horizons rejects bursts of simultaneous requests from the same client with 503s.
+const MAX_CONCURRENT_REQUESTS = 3;
+const RETRYABLE_STATUSES = new Set([429, 503]);
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 300;
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      const item = items[index];
+      if (item === undefined) continue;
+      results[index] = await mapper(item);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 export class JplHorizonsProvider implements AstronomyProvider {
   constructor(
     private readonly request: typeof fetch = fetch,
@@ -58,13 +90,15 @@ export class JplHorizonsProvider implements AstronomyProvider {
   }
 
   async getPositions(query: PositionQuery): Promise<ApparentPosition[]> {
-    return Promise.all(query.objectIds.map((objectId) => this.fetchPosition(objectId, query)));
+    return mapWithConcurrency(query.objectIds, MAX_CONCURRENT_REQUESTS, (objectId) =>
+      this.fetchPosition(objectId, query),
+    );
   }
 
   async getEvents(query: EventQuery): Promise<AstronomicalEvent[]> {
     const objectIds = query.objectIds ?? [];
-    const events = await Promise.all(
-      objectIds.map(async (objectId) => await this.fetchEvents(objectId, query)),
+    const events = await mapWithConcurrency(objectIds, MAX_CONCURRENT_REQUESTS, (objectId) =>
+      this.fetchEvents(objectId, query),
     );
     return events.flat().sort((left, right) => left.startsAt.localeCompare(right.startsAt));
   }
@@ -134,33 +168,48 @@ export class JplHorizonsProvider implements AstronomyProvider {
   }
 
   private async fetchJson(url: URL): Promise<unknown> {
-    let response: Response;
+    let lastError: AstronomyProviderError | undefined;
 
-    try {
-      response = await this.request(url, {
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(8_000),
-      });
-    } catch (error) {
-      throw new AstronomyProviderError('UNAVAILABLE', 'JPL Horizons is temporarily unavailable', {
-        cause: error,
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      let response: Response;
+
+      try {
+        response = await this.request(url, {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        });
+      } catch (error) {
+        throw new AstronomyProviderError('UNAVAILABLE', 'JPL Horizons is temporarily unavailable', {
+          cause: error,
+        });
+      }
+
+      if (!response.ok) {
+        lastError = new AstronomyProviderError(
+          'UNAVAILABLE',
+          `JPL Horizons request failed with status ${response.status}`,
+        );
+        if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_ATTEMPTS) {
+          await sleep(RETRY_DELAY_MS * attempt);
+          continue;
+        }
+        throw lastError;
+      }
+
+      try {
+        return await response.json();
+      } catch (error) {
+        throw new AstronomyProviderError(
+          'INVALID_RESPONSE',
+          'JPL Horizons returned malformed JSON',
+          { cause: error },
+        );
+      }
     }
 
-    if (!response.ok) {
-      throw new AstronomyProviderError(
-        'UNAVAILABLE',
-        `JPL Horizons request failed with status ${response.status}`,
-      );
-    }
-
-    try {
-      return await response.json();
-    } catch (error) {
-      throw new AstronomyProviderError('INVALID_RESPONSE', 'JPL Horizons returned malformed JSON', {
-        cause: error,
-      });
-    }
+    throw (
+      lastError ?? new AstronomyProviderError('UNAVAILABLE', 'JPL Horizons is temporarily unavailable')
+    );
   }
 
   private mapLookupItem(item: HorizonsLookupItem): CelestialObject | null {
