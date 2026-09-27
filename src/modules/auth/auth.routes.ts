@@ -15,6 +15,7 @@ export function createAuthRouter(
 
   router.post('/sign-up', asyncHandler(controller.signUp));
   router.post('/sign-in', asyncHandler(controller.signIn));
+  router.post('/oauth/google', asyncHandler(controller.signInWithGoogle));
   router.post('/refresh', asyncHandler(controller.refresh));
   router.post('/password/recovery', asyncHandler(controller.requestPasswordRecovery));
   router.post('/sign-out', authenticateHandler, asyncHandler(controller.signOut));

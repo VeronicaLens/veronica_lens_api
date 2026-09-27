@@ -36,6 +36,7 @@ function modelWith(overrides: Partial<AuthModelPort> = {}): AuthModelPort {
   return {
     signUp: vi.fn().mockResolvedValue({ user, session, error: null }),
     signIn: vi.fn().mockResolvedValue({ user, session, error: null }),
+    signInWithGoogle: vi.fn().mockResolvedValue({ user, session, error: null }),
     refresh: vi.fn().mockResolvedValue({ user, session, error: null }),
     requestPasswordRecovery: vi.fn().mockResolvedValue({ error: null }),
     signOut: vi.fn().mockResolvedValue({ error: null }),

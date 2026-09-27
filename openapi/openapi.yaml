@@ -121,6 +121,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /auth/oauth/google:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Sign in with a Google ID token obtained natively on the device
+      operationId: signInWithGoogle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleSignInRequest'
+      responses:
+        '200':
+          description: Authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Invalid or expired Google ID token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /auth/refresh:
     post:
       security: []
@@ -1399,6 +1424,19 @@ components:
       required: [refreshToken]
       properties:
         refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+    GoogleSignInRequest:
+      type: object
+      additionalProperties: false
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+        nonce:
           type: string
           minLength: 1
           writeOnly: true

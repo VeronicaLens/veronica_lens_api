@@ -7,7 +7,7 @@ import type {
 import { AppError } from '../../shared/errors/app-error.js';
 import type { AppRole } from '../../shared/auth/auth.types.js';
 import type { AuthModelPort } from './auth.model.js';
-import type { SignInInput, SignUpInput } from './auth.schemas.js';
+import type { GoogleSignInInput, SignInInput, SignUpInput } from './auth.schemas.js';
 
 interface PublicUser {
   id: string;
@@ -131,6 +131,19 @@ export class AuthService {
 
   async signIn(input: SignInInput) {
     const result = await this.authModel.signIn(input.email, input.password);
+    if (result.error) throwAuthError(result.error, 'AUTH_SIGN_IN_FAILED');
+    if (!result.session) {
+      throw new AppError(
+        502,
+        'AUTH_RESPONSE_INVALID',
+        'Authentication provider returned invalid data',
+      );
+    }
+    return toPublicSession(result.session);
+  }
+
+  async signInWithGoogle(input: GoogleSignInInput) {
+    const result = await this.authModel.signInWithGoogle(input.idToken, input.nonce);
     if (result.error) throwAuthError(result.error, 'AUTH_SIGN_IN_FAILED');
     if (!result.session) {
       throw new AppError(

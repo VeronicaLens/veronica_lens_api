@@ -13,6 +13,7 @@ export interface AuthOperationResult {
 export interface AuthModelPort {
   signUp(email: string, password: string, displayName?: string): Promise<AuthSessionResult>;
   signIn(email: string, password: string): Promise<AuthSessionResult>;
+  signInWithGoogle(idToken: string, nonce?: string): Promise<AuthSessionResult>;
   refresh(refreshToken: string): Promise<AuthSessionResult>;
   requestPasswordRecovery(email: string): Promise<AuthOperationResult>;
   signOut(accessToken: string): Promise<AuthOperationResult>;
@@ -39,6 +40,16 @@ export class SupabaseAuthModel implements AuthModelPort {
     const { data, error } = await this.authClientFactory().auth.signInWithPassword({
       email,
       password,
+    });
+
+    return { user: data.user, session: data.session, error };
+  }
+
+  async signInWithGoogle(idToken: string, nonce?: string): Promise<AuthSessionResult> {
+    const { data, error } = await this.authClientFactory().auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+      ...(nonce ? { nonce } : {}),
     });
 
     return { user: data.user, session: data.session, error };

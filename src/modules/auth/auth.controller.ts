@@ -4,6 +4,7 @@ import type { ZodType } from 'zod';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { AuthService } from './auth.service.js';
 import {
+  googleSignInSchema,
   passwordRecoverySchema,
   passwordUpdateSchema,
   refreshSessionSchema,
@@ -31,6 +32,12 @@ export class AuthController {
 
   signIn = async (request: Request, response: Response): Promise<void> => {
     const session = await this.authService.signIn(parseBody(signInSchema, request.body));
+    response.status(200).json({ data: session });
+  };
+
+  signInWithGoogle = async (request: Request, response: Response): Promise<void> => {
+    const input = parseBody(googleSignInSchema, request.body);
+    const session = await this.authService.signInWithGoogle(input);
     response.status(200).json({ data: session });
   };
 
