@@ -30,6 +30,8 @@ tags:
     description: Observation-window recommendations based on celestial position and weather.
   - name: Conditions
     description: Current observation conditions (sky, weather and visibility) for an observer.
+  - name: Learning
+    description: Published learning tracks, lessons and per-user progress.
 paths:
   /health:
     get:
@@ -680,6 +682,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /learning/tracks:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List published learning tracks
+      operationId: listLearningTracks
+      responses:
+        '200':
+          description: Published learning tracks ordered by sort order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTracksResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/InternalServerError'
+  /learning/tracks/{trackId}/lessons:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List published lessons for a learning track
+      operationId: listLearningLessons
+      parameters:
+        - { name: trackId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Published lessons ordered by sort order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonsResponse'
+        '400':
+          description: Track identifier is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /learning/progress:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List the authenticated user's lesson progress
+      operationId: listLearningProgress
+      responses:
+        '200':
+          description: Progress records for the authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgressListResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /learning/lessons/{lessonId}/progress:
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: Create or update the authenticated user's progress for a lesson
+      operationId: upsertLearningProgress
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertLessonProgressRequest'
+      responses:
+        '200':
+          description: Progress saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgressResponse'
+        '400':
+          description: Lesson identifier or progress payload is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1322,6 +1428,86 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/CurrentConditions'
+    LearningTrack:
+      type: object
+      additionalProperties: false
+      required: [id, slug, title, description, sortOrder]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        description: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+    LearningTracksResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningTrack'
+    Lesson:
+      type: object
+      additionalProperties: false
+      required: [id, trackId, slug, title, content, sortOrder]
+      properties:
+        id: { type: string, format: uuid }
+        trackId: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        content: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+    LessonsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lesson'
+    LearningProgressStatus:
+      type: string
+      enum: [not_started, in_progress, completed]
+    LessonProgress:
+      type: object
+      additionalProperties: false
+      required: [lessonId, status, progressPercent, completedAt]
+      properties:
+        lessonId: { type: string, format: uuid }
+        status:
+          $ref: '#/components/schemas/LearningProgressStatus'
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+        completedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+    LessonProgressResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/LessonProgress'
+    LessonProgressListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LessonProgress'
+    UpsertLessonProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [status, progressPercent]
+      properties:
+        status:
+          $ref: '#/components/schemas/LearningProgressStatus'
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
     UpcomingAstronomicalEventType:
       type: string
       enum: [rise, transit, set]

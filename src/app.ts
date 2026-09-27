@@ -32,6 +32,7 @@ import {
   createObservationsRouter,
   type ObservationsModelPort,
 } from './modules/observations/index.js';
+import { createLearningRouter, type LearningModelPort } from './modules/learning/index.js';
 import {
   createNotificationsRouter,
   type NotificationsModelPort,
@@ -60,6 +61,7 @@ export interface AppOptions {
   weatherProvider?: WeatherProvider;
   observationRecommendationService?: ObservationRecommendationPort;
   currentConditionsService?: CurrentConditionsPort;
+  learningModel?: LearningModelPort;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -125,6 +127,7 @@ export function createApp(options: AppOptions = {}) {
     '/api/v1/observations',
     createObservationsRouter(options.observationsModel, options.authenticateHandler),
   );
+  app.use('/api/v1/learning', createLearningRouter(options.learningModel, options.authenticateHandler));
   app.use(
     '/api/v1/notifications',
     createNotificationsRouter(options.notificationsModel, options.authenticateHandler),
