@@ -28,6 +28,8 @@ tags:
     description: Observer-specific celestial positions for the augmented-reality guide.
   - name: Planning
     description: Observation-window recommendations based on celestial position and weather.
+  - name: Conditions
+    description: Current observation conditions (sky, weather and visibility) for an observer.
 paths:
   /health:
     get:
@@ -628,6 +630,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /conditions/current:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Conditions]
+      summary: Get current observation conditions for an observer
+      operationId: getCurrentConditions
+      parameters:
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+      responses:
+        '200':
+          description: Current sky, weather and visibility conditions for the observer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentConditionsResponse'
+        '400':
+          description: Invalid observer coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Weather provider unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1219,6 +1271,53 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/ObservationRecommendation'
+    ObservationRating:
+      type: string
+      enum: [good, fair, poor]
+    CurrentConditions:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          observedAt,
+          temperatureCelsius,
+          cloudCoverPercent,
+          precipitationProbabilityPercent,
+          visibilityMeters,
+          rating,
+          skyLabel,
+          visibilityLabel,
+        ]
+      properties:
+        observedAt:
+          type: string
+          format: date-time
+        temperatureCelsius:
+          type: number
+        cloudCoverPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        precipitationProbabilityPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        visibilityMeters:
+          type: number
+          minimum: 0
+        rating:
+          $ref: '#/components/schemas/ObservationRating'
+        skyLabel:
+          type: string
+        visibilityLabel:
+          type: string
+    CurrentConditionsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/CurrentConditions'
     UpcomingAstronomicalEventType:
       type: string
       enum: [rise, transit, set]

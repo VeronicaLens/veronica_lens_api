@@ -24,6 +24,11 @@ import {
   type ObservationRecommendationPort,
 } from './modules/planning/index.js';
 import {
+  createCurrentConditionsRouter,
+  CurrentConditionsService,
+  type CurrentConditionsPort,
+} from './modules/conditions/index.js';
+import {
   createObservationsRouter,
   type ObservationsModelPort,
 } from './modules/observations/index.js';
@@ -54,6 +59,7 @@ export interface AppOptions {
   notificationsModel?: NotificationsModelPort;
   weatherProvider?: WeatherProvider;
   observationRecommendationService?: ObservationRecommendationPort;
+  currentConditionsService?: CurrentConditionsPort;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -83,14 +89,19 @@ export function createApp(options: AppOptions = {}) {
     options.skyGuideModel ?? new AstronomySkyGuideModel(catalogModel, astronomyProvider);
   app.use('/api/v1/catalog', createCatalogRouter(catalogModel, options.authenticateHandler));
   app.use('/api/v1/sky-guide', createSkyGuideRouter(skyGuideModel, options.authenticateHandler));
+  const weatherProvider = options.weatherProvider ?? new OpenMeteoWeatherProvider();
   app.use(
     '/api/v1/planning',
     createObservationRecommendationRouter(
       options.observationRecommendationService ??
-        new ObservationRecommendationService(
-          skyGuideModel,
-          options.weatherProvider ?? new OpenMeteoWeatherProvider(),
-        ),
+        new ObservationRecommendationService(skyGuideModel, weatherProvider),
+      options.authenticateHandler,
+    ),
+  );
+  app.use(
+    '/api/v1/conditions',
+    createCurrentConditionsRouter(
+      options.currentConditionsService ?? new CurrentConditionsService(weatherProvider),
       options.authenticateHandler,
     ),
   );
