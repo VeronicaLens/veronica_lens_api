@@ -32,6 +32,8 @@ export interface VisibilityFactor {
   code: VisibilityFactorCode;
   status: VisibilityFactorStatus;
   summary: string;
+  /** Structured metrics backing the summary, keyed by metric name. Absent when unavailable. */
+  metrics?: Record<string, number>;
 }
 
 export interface VisibilityEvaluation {
@@ -189,6 +191,7 @@ function assessAltitude(altitude: number, minimum: number): VisibilityFactor {
     code: 'altitude',
     status: altitude >= minimum ? 'favorable' : 'unfavorable',
     summary: `Altitude ${formatNumber(altitude)}°; mínimo configurado ${formatNumber(minimum)}°.`,
+    metrics: { altitudeDegrees: altitude, minimumAltitudeDegrees: minimum },
   };
 }
 
@@ -257,10 +260,17 @@ function assessWeather(
     checks.push(weather.visibilityMeters >= thresholds.minimumVisibilityMeters);
     observations.push(`visibilidade ${formatNumber(weather.visibilityMeters)} m`);
   }
+  const metrics: Record<string, number> = {};
+  if (weather.cloudCoverPercent !== undefined) metrics.cloudCoverPercent = weather.cloudCoverPercent;
+  if (weather.precipitationProbabilityPercent !== undefined) {
+    metrics.precipitationProbabilityPercent = weather.precipitationProbabilityPercent;
+  }
+  if (weather.visibilityMeters !== undefined) metrics.visibilityMeters = weather.visibilityMeters;
   return {
     code: 'weather',
     status: checks.every(Boolean) ? 'favorable' : 'unfavorable',
     summary: `${observations.join('; ')}.`,
+    ...(Object.keys(metrics).length > 0 ? { metrics } : {}),
   };
 }
 

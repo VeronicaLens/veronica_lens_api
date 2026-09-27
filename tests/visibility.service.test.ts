@@ -36,6 +36,15 @@ describe('ObservationVisibilityService', () => {
       { code: 'moon', status: 'favorable' },
       { code: 'weather', status: 'favorable' },
     ]);
+    expect(result.factors.find((factor) => factor.code === 'altitude')?.metrics).toEqual({
+      altitudeDegrees: 48,
+      minimumAltitudeDegrees: 30,
+    });
+    expect(result.factors.find((factor) => factor.code === 'weather')?.metrics).toEqual({
+      cloudCoverPercent: 20,
+      precipitationProbabilityPercent: 5,
+      visibilityMeters: 12_000,
+    });
   });
 
   it('rejects an otherwise good instant when cloud cover exceeds the threshold', () => {

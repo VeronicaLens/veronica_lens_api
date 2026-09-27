@@ -1212,6 +1212,10 @@ components:
         summary:
           type: string
           minLength: 1
+        metrics:
+          type: object
+          additionalProperties: { type: number }
+          description: Structured numeric metrics backing the summary, keyed by metric name.
     RecommendedObservationWindow:
       type: object
       additionalProperties: false
