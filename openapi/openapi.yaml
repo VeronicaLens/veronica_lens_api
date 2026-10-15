@@ -29,7 +29,7 @@ tags:
   - name: Planning
     description: Observation-window recommendations based on celestial position and weather.
   - name: Conditions
-    description: Current observation conditions (sky, weather and visibility) for an observer.
+    description: Hourly weather estimates for observation planning at an observer location.
   - name: Learning
     description: Published learning tracks, lessons and per-user progress.
 paths:
@@ -670,13 +670,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /conditions/current:
+  /conditions/forecast:
     get:
       security:
         - bearerAuth: []
       tags: [Conditions]
-      summary: Get current observation conditions for an observer
-      operationId: getCurrentConditions
+      summary: Get hourly weather estimates for the next seven days
+      operationId: getConditionsForecast
       parameters:
         - {
             name: latitudeDegrees,
@@ -697,13 +697,74 @@ paths:
           }
       responses:
         '200':
-          description: Current sky, weather and visibility conditions for the observer.
+          description: Hourly weather estimates and assessment factors for the forecast horizon.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentConditionsForecastResponse'
+        '400':
+          description: Invalid observer coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Weather forecast provider unavailable or returned no hourly samples.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /conditions/current:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Conditions]
+      summary: Get weather conditions for the current or a future observation time
+      operationId: getCurrentConditions
+      parameters:
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+        - name: at
+          in: query
+          description: >
+            Optional future local selection represented as an ISO 8601 instant.
+            The API evaluates the nearest hourly forecast sample, up to seven days ahead.
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: >
+            Hourly weather estimate. observedAt identifies the forecast sample time, not a
+            real-time measurement at the observer location.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CurrentConditionsResponse'
         '400':
-          description: Invalid observer coordinates.
+          description: Invalid observer coordinates or a requested time outside the next seven days.
           content:
             application/json:
               schema:
@@ -1427,21 +1488,38 @@ components:
       additionalProperties: false
       required:
         [
+          requestedAt,
           observedAt,
+          fetchedAt,
           temperatureCelsius,
+          relativeHumidityPercent,
           cloudCoverPercent,
           precipitationProbabilityPercent,
+          precipitationMillimeters,
           visibilityMeters,
+          windSpeedKilometersPerHour,
           rating,
+          factors,
           skyLabel,
           visibilityLabel,
         ]
       properties:
+        requestedAt:
+          type: string
+          format: date-time
         observedAt:
+          type: string
+          format: date-time
+          description: Time of the hourly forecast sample used; this is not an on-site observation.
+        fetchedAt:
           type: string
           format: date-time
         temperatureCelsius:
           type: number
+        relativeHumidityPercent:
+          type: number
+          minimum: 0
+          maximum: 100
         cloudCoverPercent:
           type: number
           minimum: 0
@@ -1450,15 +1528,63 @@ components:
           type: number
           minimum: 0
           maximum: 100
+        precipitationMillimeters:
+          type: number
+          minimum: 0
         visibilityMeters:
+          type: number
+          minimum: 0
+        windSpeedKilometersPerHour:
           type: number
           minimum: 0
         rating:
           $ref: '#/components/schemas/ObservationRating'
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrentConditionsFactor'
         skyLabel:
           type: string
         visibilityLabel:
           type: string
+    CurrentConditionsFactor:
+      type: object
+      additionalProperties: false
+      required: [code, status, summary]
+      properties:
+        code:
+          type: string
+          enum: [cloud-cover, precipitation, visibility, wind, humidity]
+        status:
+          type: string
+          enum: [good, caution, poor]
+        summary:
+          type: string
+    CurrentConditionsForecast:
+      type: object
+      additionalProperties: false
+      required: [from, to, fetchedAt, hourly]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        fetchedAt:
+          type: string
+          format: date-time
+        hourly:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrentConditions'
+    CurrentConditionsForecastResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/CurrentConditionsForecast'
     CurrentConditionsResponse:
       type: object
       additionalProperties: false

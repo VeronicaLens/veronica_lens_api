@@ -7,6 +7,24 @@ import type { CurrentConditionsPort } from './current-conditions.service.js';
 export class CurrentConditionsController {
   constructor(private readonly service: CurrentConditionsPort) {}
 
+  forecast = async (request: Request, response: Response): Promise<void> => {
+    const parsed = currentConditionsSchema.safeParse(request.query);
+    if (!parsed.success) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Conditions forecast request is invalid', {
+        fields: parsed.error.issues.map((issue) => issue.path.join('.')),
+      });
+    }
+
+    const result = await this.service.getForecast({
+      observer: {
+        latitudeDegrees: parsed.data.latitudeDegrees,
+        longitudeDegrees: parsed.data.longitudeDegrees,
+        elevationMeters: parsed.data.elevationMeters,
+      },
+    });
+    response.status(200).json({ data: result });
+  };
+
   current = async (request: Request, response: Response): Promise<void> => {
     const parsed = currentConditionsSchema.safeParse(request.query);
     if (!parsed.success) {
@@ -21,6 +39,7 @@ export class CurrentConditionsController {
         longitudeDegrees: parsed.data.longitudeDegrees,
         elevationMeters: parsed.data.elevationMeters,
       },
+      ...(parsed.data.at ? { at: new Date(parsed.data.at) } : {}),
     });
     response.status(200).json({ data: result });
   };

@@ -130,6 +130,43 @@ describe('ObservationRecommendationService', () => {
     expect(result.summary).toContain('dados de posição suficientes');
   });
 
+  it('loads position samples concurrently without exceeding the provider limit', async () => {
+    let activeRequests = 0;
+    let maximumActiveRequests = 0;
+    let totalRequests = 0;
+    const getPositions: SkyGuideModelPort['getPositions'] = async ({ objectIds, observedAt }) => {
+      totalRequests += 1;
+      activeRequests += 1;
+      maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeRequests -= 1;
+      return {
+        positions: [
+          {
+            id: objectIds[0] ?? 'sirius',
+            name: 'Sirius',
+            type: 'star',
+            magnitude: -1.46,
+            observedAt: observedAt.toISOString(),
+            horizontal: { altitudeDegrees: 45, azimuthDegrees: 180 },
+          },
+        ],
+        unavailableObjectIds: [],
+      };
+    };
+    const positions: SkyGuideModelPort = { getPositions: vi.fn(getPositions) };
+    const service = new ObservationRecommendationService(positions, weatherProvider(15));
+
+    await service.recommend({
+      ...query,
+      windowTo: new Date('2026-10-13T22:00:00.000Z'),
+    });
+
+    expect(maximumActiveRequests).toBeGreaterThan(1);
+    expect(maximumActiveRequests).toBeLessThanOrEqual(3);
+    expect(totalRequests).toBe(13);
+  });
+
   it('rejects an invalid domain window before consulting providers', async () => {
     const positions = positionSource({});
     const weather = weatherProvider(10);

@@ -11,6 +11,7 @@ import {
 const SAMPLE_INTERVAL_MS = 2 * 60 * 60 * 1_000;
 const MAX_WEATHER_DISTANCE_MS = 60 * 60 * 1_000;
 const MINIMUM_POSITION_SAMPLES = 2;
+const POSITION_REQUEST_CONCURRENCY = 3;
 
 export interface ObservationRecommendationQuery {
   objectId: string;
@@ -144,23 +145,21 @@ export class ObservationRecommendationService implements ObservationRecommendati
   }
 
   private async loadPositions(query: ObservationRecommendationQuery, instants: Date[]) {
-    const samples: Array<{ observedAt: string; altitudeDegrees: number; objectName: string }> = [];
-    for (const observedAt of instants) {
+    return mapWithConcurrency(instants, POSITION_REQUEST_CONCURRENCY, async (observedAt) => {
       const result = await this.positions.getPositions({
         objectIds: [query.objectId],
         observedAt,
         observer: query.observer,
       });
       const position = result.positions.at(0);
-      if (position) {
-        samples.push({
-          observedAt: position.observedAt,
-          altitudeDegrees: position.horizontal.altitudeDegrees,
-          objectName: position.name,
-        });
-      }
-    }
-    return samples;
+      return position
+        ? {
+            observedAt: position.observedAt,
+            altitudeDegrees: position.horizontal.altitudeDegrees,
+            objectName: position.name,
+          }
+        : undefined;
+    }).then((samples) => samples.filter((sample) => sample !== undefined));
   }
 
   private async loadWeather(
@@ -178,6 +177,27 @@ export class ObservationRecommendationService implements ObservationRecommendati
       return [];
     }
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      const item = items[index];
+      if (item !== undefined) results[index] = await mapper(item);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 function validateQuery(query: ObservationRecommendationQuery): void {
