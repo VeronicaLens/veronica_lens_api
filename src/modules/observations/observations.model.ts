@@ -3,6 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { ObservationPhotoMetadata } from './observations.schemas.js';
 
+// Long enough for a gallery browsing session; the history request issues fresh URLs.
+const SIGNED_PHOTO_URL_TTL_SECONDS = 60 * 60;
+
 export interface SaveObservationPhotoInput {
   observationId: string;
   photoId: string;
@@ -19,6 +22,16 @@ export interface ObservationPhotoResult {
   capturedAt: string;
 }
 
+export interface ObservationCaptureSummary {
+  deviceName: string | null;
+  iso: number | null;
+  exposureTimeSeconds: number | null;
+  exposureCompensationEv: number | null;
+  focusMode: string | null;
+  focusLensPosition: number | null;
+  whiteBalanceKelvin: number | null;
+}
+
 export interface ObservationHistoryItem {
   id: string;
   title: string;
@@ -32,6 +45,7 @@ export interface ObservationHistoryItem {
     storagePath: string;
     capturedAt: string | null;
     thumbnailUrl: string | null;
+    capture: ObservationCaptureSummary | null;
   }>;
 }
 
@@ -60,6 +74,7 @@ interface ObservationHistoryRow {
     id: string;
     storage_path: string;
     captured_at: string | null;
+    capture_metadata?: unknown;
   }> | null;
 }
 
@@ -80,7 +95,7 @@ export class SupabaseObservationsModel implements ObservationsModelPort {
     const { data, error } = await client
       .from('observations')
       .select(
-        'id, title, notes, celestial_object_name, observed_at, latitude, longitude, observation_media(id, storage_path, captured_at)',
+        'id, title, notes, celestial_object_name, observed_at, latitude, longitude, observation_media(id, storage_path, captured_at, capture_metadata)',
       )
       .eq('user_id', input.userId)
       .order('observed_at', { ascending: false })
@@ -95,7 +110,7 @@ export class SupabaseObservationsModel implements ObservationsModelPort {
     if (storagePaths.length > 0) {
       const { data: signedPhotos, error: signError } = await client.storage
         .from('observations')
-        .createSignedUrls(storagePaths, 900);
+        .createSignedUrls(storagePaths, SIGNED_PHOTO_URL_TTL_SECONDS);
       if (signError) throw providerError('Observation photos could not be accessed');
       for (const photo of signedPhotos ?? []) {
         if (photo.path && photo.signedUrl) thumbnailUrlByPath.set(photo.path, photo.signedUrl);
@@ -116,6 +131,7 @@ export class SupabaseObservationsModel implements ObservationsModelPort {
           storagePath: photo.storage_path,
           capturedAt: photo.captured_at,
           thumbnailUrl: thumbnailUrlByPath.get(photo.storage_path) ?? null,
+          capture: summarizeCaptureMetadata(photo.capture_metadata),
         })),
       })),
       page: input.page,
@@ -180,6 +196,34 @@ export class SupabaseObservationsModel implements ObservationsModelPort {
       capturedAt: input.metadata.capturedAt,
     };
   }
+}
+
+/**
+ * Converts the stored capture metadata JSON into a stable summary. Automatic values and
+ * unknown or malformed fields become null, so older records remain readable.
+ */
+export function summarizeCaptureMetadata(metadata: unknown): ObservationCaptureSummary | null {
+  if (!isRecord(metadata)) return null;
+  const device = isRecord(metadata.device) ? metadata.device : {};
+  const parameters = isRecord(metadata.parameters) ? metadata.parameters : {};
+  const summary: ObservationCaptureSummary = {
+    deviceName: typeof device.name === 'string' && device.name ? device.name : null,
+    iso: finiteNumber(parameters.iso),
+    exposureTimeSeconds: finiteNumber(parameters.exposureTimeSeconds),
+    exposureCompensationEv: finiteNumber(parameters.exposureCompensationEv),
+    focusMode: typeof parameters.focusMode === 'string' ? parameters.focusMode : null,
+    focusLensPosition: finiteNumber(parameters.focusLensPosition),
+    whiteBalanceKelvin: finiteNumber(parameters.whiteBalanceKelvin),
+  };
+  return Object.values(summary).every((value) => value === null) ? null : summary;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function extension(contentType: string): string {

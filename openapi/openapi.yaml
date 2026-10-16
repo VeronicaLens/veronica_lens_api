@@ -941,7 +941,7 @@ components:
     ObservationHistoryPhoto:
       type: object
       additionalProperties: false
-      required: [id, storagePath, capturedAt, thumbnailUrl]
+      required: [id, storagePath, capturedAt, thumbnailUrl, capture]
       properties:
         id: { type: string, format: uuid }
         storagePath: { type: string, minLength: 1, maxLength: 1024 }
@@ -950,6 +950,33 @@ components:
           type: [string, 'null']
           format: uri
           description: Short-lived signed URL for the authenticated user's private media.
+        capture:
+          oneOf:
+            - $ref: '#/components/schemas/ObservationCaptureSummary'
+            - type: 'null'
+          description: Device and settings recorded when the photo was taken; null for older photos.
+    ObservationCaptureSummary:
+      type: object
+      additionalProperties: false
+      description: Capture settings summary. Null values mean automatic or not recorded.
+      required:
+        [
+          deviceName,
+          iso,
+          exposureTimeSeconds,
+          exposureCompensationEv,
+          focusMode,
+          focusLensPosition,
+          whiteBalanceKelvin,
+        ]
+      properties:
+        deviceName: { type: [string, 'null'] }
+        iso: { type: [number, 'null'] }
+        exposureTimeSeconds: { type: [number, 'null'] }
+        exposureCompensationEv: { type: [number, 'null'] }
+        focusMode: { type: [string, 'null'] }
+        focusLensPosition: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        whiteBalanceKelvin: { type: [number, 'null'] }
     ObservationHistoryItem:
       type: object
       additionalProperties: false
