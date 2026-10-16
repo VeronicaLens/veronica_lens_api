@@ -15,9 +15,10 @@ describe('GET /api/v1/conditions/forecast', () => {
       fetchedAt: '2026-10-12T22:30:00.000Z',
       hourly: [],
     };
+    const getForecast = vi.fn().mockResolvedValue(forecast);
     const currentConditionsService: CurrentConditionsPort = {
       getCurrent: vi.fn(),
-      getForecast: vi.fn().mockResolvedValue(forecast),
+      getForecast,
     };
     const app = createApp({
       currentConditionsService,
@@ -31,7 +32,7 @@ describe('GET /api/v1/conditions/forecast', () => {
       .expect(200);
 
     expect(response.body).toEqual({ data: forecast });
-    expect(currentConditionsService.getForecast).toHaveBeenCalledWith({
+    expect(getForecast).toHaveBeenCalledWith({
       observer: {
         latitudeDegrees: -23.5505,
         longitudeDegrees: -46.6333,

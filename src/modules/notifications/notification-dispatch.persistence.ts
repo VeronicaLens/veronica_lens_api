@@ -42,6 +42,75 @@ interface ProfileRow {
   id: string;
 }
 
+/** Same defaults the app shows before the user customises any event type. */
+export const DEFAULT_EVENT_PREFERENCES = [
+  { eventType: 'rise', leadMinutes: 30 },
+  { eventType: 'transit', leadMinutes: 30 },
+  { eventType: 'set', leadMinutes: 30 },
+] as const;
+
+export interface CandidateSelectionInput {
+  now: Date;
+  events: readonly EventRow[];
+  preferences: readonly (PreferenceRow & { enabled?: boolean })[];
+  devices: readonly DeviceRow[];
+  enabledUserIds: ReadonlySet<string>;
+}
+
+/**
+ * Matches upcoming events with each user's devices and lead time. Users who enabled alerts but
+ * never saved preferences receive the defaults shown in the app.
+ */
+export function selectNotificationCandidates(
+  input: CandidateSelectionInput,
+): NotificationCandidate[] {
+  const devicesByUser = new Map<string, DeviceRow[]>();
+  for (const device of input.devices) {
+    const userDevices = devicesByUser.get(device.user_id) ?? [];
+    userDevices.push(device);
+    devicesByUser.set(device.user_id, userDevices);
+  }
+
+  const usersWithSavedPreferences = new Set(input.preferences.map((row) => row.user_id));
+  const effectivePreferences: PreferenceRow[] = [
+    ...input.preferences.filter((row) => row.enabled !== false),
+    ...[...input.enabledUserIds]
+      .filter((userId) => !usersWithSavedPreferences.has(userId))
+      .flatMap((userId) =>
+        DEFAULT_EVENT_PREFERENCES.map((preference) => ({
+          user_id: userId,
+          event_type: preference.eventType,
+          lead_minutes: preference.leadMinutes,
+        })),
+      ),
+  ];
+
+  return effectivePreferences.flatMap((preference) => {
+    if (!input.enabledUserIds.has(preference.user_id)) return [];
+    const latestStart = input.now.getTime() + preference.lead_minutes * 60_000;
+    const matchingEvents = input.events.filter((event) => {
+      const startsAt = new Date(event.starts_at).getTime();
+      return (
+        event.event_type === preference.event_type &&
+        startsAt > input.now.getTime() &&
+        startsAt <= latestStart
+      );
+    });
+    return matchingEvents.flatMap((event) =>
+      (devicesByUser.get(preference.user_id) ?? []).map((device) => ({
+        eventId: event.id,
+        eventType: event.event_type,
+        eventTitle: event.title,
+        eventDescription: event.description,
+        eventStartsAt: event.starts_at,
+        userId: preference.user_id,
+        deviceId: device.id,
+        token: device.token,
+      })),
+    );
+  });
+}
+
 export class SupabaseNotificationDispatchPersistence implements NotificationDispatchPersistencePort {
   constructor(private readonly clientFactory: () => SupabaseClient) {}
 
@@ -55,10 +124,7 @@ export class SupabaseNotificationDispatchPersistence implements NotificationDisp
         .eq('published', true)
         .gt('starts_at', now.toISOString())
         .lte('starts_at', latestEligibleStart),
-      client
-        .from('event_preferences')
-        .select('user_id, event_type, lead_minutes')
-        .eq('enabled', true),
+      client.from('event_preferences').select('user_id, event_type, enabled, lead_minutes'),
       client.from('device_push_tokens').select('id, user_id, token').eq('active', true),
       client.from('profiles').select('id').eq('notifications_enabled', true),
     ]);
@@ -70,39 +136,14 @@ export class SupabaseNotificationDispatchPersistence implements NotificationDisp
     if (profilesResult.error)
       throw new NotificationDispatchPersistenceError('Could not read profiles');
 
-    const events = (eventsResult.data ?? []) as unknown as EventRow[];
-    const preferences = (preferencesResult.data ?? []) as unknown as PreferenceRow[];
-    const devices = (devicesResult.data ?? []) as unknown as DeviceRow[];
-    const enabledUsers = new Set(
-      ((profilesResult.data ?? []) as unknown as ProfileRow[]).map((profile) => profile.id),
-    );
-    const devicesByUser = new Map<string, DeviceRow[]>();
-    for (const device of devices) {
-      const userDevices = devicesByUser.get(device.user_id) ?? [];
-      userDevices.push(device);
-      devicesByUser.set(device.user_id, userDevices);
-    }
-
-    return preferences.flatMap((preference) => {
-      if (!enabledUsers.has(preference.user_id)) return [];
-      const latestStart = now.getTime() + preference.lead_minutes * 60_000;
-      const matchingEvents = events.filter(
-        (event) =>
-          event.event_type === preference.event_type &&
-          new Date(event.starts_at).getTime() <= latestStart,
-      );
-      return matchingEvents.flatMap((event) =>
-        (devicesByUser.get(preference.user_id) ?? []).map((device) => ({
-          eventId: event.id,
-          eventType: event.event_type,
-          eventTitle: event.title,
-          eventDescription: event.description,
-          eventStartsAt: event.starts_at,
-          userId: preference.user_id,
-          deviceId: device.id,
-          token: device.token,
-        })),
-      );
+    return selectNotificationCandidates({
+      now,
+      events: eventsResult.data ?? [],
+      preferences: preferencesResult.data ?? [],
+      devices: devicesResult.data ?? [],
+      enabledUserIds: new Set(
+        ((profilesResult.data ?? []) as unknown as ProfileRow[]).map((profile) => profile.id),
+      ),
     });
   }
 

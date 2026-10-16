@@ -11,6 +11,9 @@ export class ExpoPushProvider implements PushProviderPort {
       body: JSON.stringify({
         to: candidate.token,
         sound: 'default',
+        priority: 'high',
+        // Matches the Android channel the app creates when alerts are enabled.
+        channelId: 'astronomy-alerts',
         title: candidate.eventTitle,
         body: candidate.eventDescription,
         data: {

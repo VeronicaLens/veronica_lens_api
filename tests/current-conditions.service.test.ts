@@ -63,7 +63,8 @@ describe('CurrentConditionsService', () => {
         fetchedAt,
         hourly: [sample(from), sample(to)],
       });
-    const provider: WeatherProvider = { getForecast: vi.fn(getForecast) };
+    const getForecastMock = vi.fn(getForecast);
+    const provider: WeatherProvider = { getForecast: getForecastMock };
     const service = new CurrentConditionsService(provider, () => now);
 
     const result = await service.getForecast({ observer });
@@ -79,9 +80,9 @@ describe('CurrentConditionsService', () => {
       rating: 'good',
       factors: expect.arrayContaining([
         expect.objectContaining({ code: 'cloud-cover', status: 'good' }),
-      ]),
+      ]) as unknown,
     });
-    expect(provider.getForecast).toHaveBeenCalledWith({
+    expect(getForecastMock).toHaveBeenCalledWith({
       latitudeDegrees: observer.latitudeDegrees,
       longitudeDegrees: observer.longitudeDegrees,
       from: new Date('2026-10-12T23:00:00.000Z'),
@@ -157,6 +158,7 @@ describe('CurrentConditionsService', () => {
       observedAt: '2026-10-12T23:00:00.000Z',
       fetchedAt: '2026-10-12T23:00:00.000Z',
     });
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- asserting calls on a vi.fn mock.
     expect(provider.getForecast).toHaveBeenCalledWith({
       latitudeDegrees: observer.latitudeDegrees,
       longitudeDegrees: observer.longitudeDegrees,

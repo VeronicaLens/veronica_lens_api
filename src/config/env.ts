@@ -9,6 +9,16 @@ const envSchema = z.object({
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
   PASSWORD_RESET_REDIRECT_URL: z.url().default('veronicalens://auth/reset-password'),
+  BACKGROUND_JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  NOTIFICATION_DISPATCH_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
+  EVENT_SYNC_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  EVENT_SYNC_LATITUDE: z.coerce.number().min(-90).max(90).default(-23.5505),
+  EVENT_SYNC_LONGITUDE: z.coerce.number().min(-180).max(180).default(-46.6333),
+  EVENT_SYNC_ELEVATION: z.coerce.number().min(-500).max(10_000).default(760),
+  EVENT_SYNC_DAYS: z.coerce.number().int().min(1).max(31).default(31),
 });
 
 export type Env = z.infer<typeof envSchema>;
