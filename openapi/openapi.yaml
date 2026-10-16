@@ -1,0 +1,2111 @@
+openapi: 3.1.0
+info:
+  title: VeronicaLens API
+  version: 1.0.0
+  description: Public HTTP contract between the VeronicaLens mobile app and API.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /api/v1
+    description: Version 1
+tags:
+  - name: Health
+    description: Technical API status.
+  - name: Connectivity
+    description: Controlled upstream connectivity status.
+  - name: Authentication
+    description: Account and session operations mediated by the API.
+  - name: Profile
+    description: Authenticated profile and preference operations.
+  - name: Catalog
+    description: Local searchable catalog of celestial objects.
+  - name: Events
+    description: Observer-specific astronomical events with cache freshness metadata.
+  - name: Observations
+    description: Private observations and captured astrophotos.
+  - name: Sky Guide
+    description: Observer-specific celestial positions for the augmented-reality guide.
+  - name: Planning
+    description: Observation-window recommendations based on celestial position and weather.
+  - name: Conditions
+    description: Hourly weather estimates for observation planning at an observer location.
+  - name: Learning
+    description: Published learning tracks, lessons and per-user progress.
+paths:
+  /health:
+    get:
+      security: []
+      tags: [Health]
+      summary: Get API health
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /connectivity/supabase:
+    get:
+      security: []
+      tags: [Connectivity]
+      summary: Get controlled database connectivity status
+      operationId: getSupabaseConnectivity
+      responses:
+        '200':
+          description: Database connectivity was validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupabaseConnectivityResponse'
+        '503':
+          description: Database connectivity is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/sign-up:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Create an account with email and password
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: Account and authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '202':
+          description: Account created and email confirmation required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '400':
+          description: Invalid account data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/sign-in:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Sign in with email and password
+      operationId: signIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/oauth/google:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Sign in with a Google ID token obtained natively on the device
+      operationId: signInWithGoogle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleSignInRequest'
+      responses:
+        '200':
+          description: Authenticated session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Invalid or expired Google ID token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/refresh:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Refresh an authenticated session
+      operationId: refreshSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionRequest'
+      responses:
+        '200':
+          description: Session refreshed and refresh token rotated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Refresh token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/sign-out:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Authentication]
+      summary: Revoke all sessions for the authenticated user
+      operationId: signOut
+      responses:
+        '204':
+          description: Sessions revoked.
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/password/recovery:
+    post:
+      security: []
+      tags: [Authentication]
+      summary: Request password recovery instructions
+      operationId: requestPasswordRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRecoveryRequest'
+      responses:
+        '202':
+          description: Recovery request accepted without disclosing account existence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '429':
+          description: Email rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/password/update:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Authentication]
+      summary: Update the authenticated user's password
+      operationId: updatePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordUpdateRequest'
+      responses:
+        '204':
+          description: Password updated.
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /profile:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Get the authenticated user's profile and preferences
+      operationId: getProfile
+      responses:
+        '200':
+          description: Profile loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Profile was not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Update the authenticated user's profile and preferences
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          description: Invalid profile data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /profile/avatar:
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Upload and set the authenticated user's avatar photo
+      operationId: uploadProfileAvatar
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        '200':
+          description: Avatar uploaded and profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          description: Avatar content type or body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Storage is temporarily unavailable; the client may retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /catalog/celestial-objects:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Catalog]
+      summary: Search the local minimum celestial catalog
+      operationId: searchCelestialObjects
+      parameters:
+        - name: q
+          in: query
+          description: Case- and accent-insensitive name or alias fragment.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/CatalogObjectType'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Matching local catalog objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '400':
+          description: Invalid catalog filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /sky-guide/positions:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Sky Guide]
+      summary: Calculate horizontal positions for the sky guide
+      operationId: getSkyGuidePositions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkyGuidePositionsRequest'
+      responses:
+        '200':
+          description: Available celestial positions for the observer and instant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkyGuidePositionsResponse'
+        '400':
+          description: Invalid observer, instant or object identifiers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /planning/observation-window:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Planning]
+      summary: Recommend the best observation window for an object and observer
+      operationId: recommendObservationWindow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservationRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation outcome with supporting factors and data availability.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationRecommendationResponse'
+        '400':
+          description: Invalid object, observer, interval or altitude threshold.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /observations:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: List the authenticated user's observation history
+      operationId: listObservations
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Private observations ordered from most to least recent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObservationHistoryResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Observation history is temporarily unavailable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /notifications/preferences:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: List the authenticated user's event alert preferences
+      operationId: listNotificationPreferences
+      responses:
+        '200':
+          description: Event alert preferences for the authenticated user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferencesResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Save event alert preferences for the authenticated user
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferencesRequest' }
+      responses:
+        '200':
+          description: Saved event alert preferences.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferencesResponse' }
+        '400':
+          description: Invalid notification preferences.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /notifications/devices:
+    post:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Register the authenticated user's device for push alerts
+      operationId: registerPushDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushDeviceRequest' }
+      responses:
+        '204': { description: Device registered. }
+        '400':
+          description: Invalid push device.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Notifications]
+      summary: Deactivate the authenticated user's push device on logout
+      operationId: unregisterPushDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PushDeviceTokenRequest' }
+      responses:
+        '204': { description: Device deactivated. }
+        '400':
+          description: Invalid push device.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /observations/{observationId}/photos/{photoId}:
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: Persist an astrophoto and its observation metadata
+      operationId: saveObservationPhoto
+      parameters:
+        - name: observationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: X-Veronica-Observation
+          in: header
+          required: true
+          description: URI-encoded JSON matching ObservationPhotoMetadata.
+          schema: { type: string, minLength: 2, maxLength: 8192 }
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+          image/heic: { schema: { type: string, format: binary } }
+          image/heif: { schema: { type: string, format: binary } }
+      responses:
+        '200':
+          description: Photo and metadata persisted idempotently.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ObservationPhotoResponse' }
+        '400':
+          description: Photo identifiers, content, or metadata are invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Storage is temporarily unavailable; the client may retry the same identifiers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: Delete an astrophoto and remove its observation when no photos remain
+      operationId: deleteObservationPhoto
+      parameters:
+        - name: observationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Photo deleted; reports whether the empty observation was removed too.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteObservationPhotoResponse' }
+        '400':
+          description: Photo identifiers are invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The photo does not exist or belongs to another user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Storage is temporarily unavailable; the client may retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /observations/{observationId}:
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: Delete an observation and all of its photos
+      operationId: deleteObservation
+      parameters:
+        - name: observationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Observation and its photos deleted.
+        '400':
+          description: Observation identifier is invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The observation does not exist or belongs to another user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Storage is temporarily unavailable; the client may retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /events:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Events]
+      summary: List upcoming astronomical events for an observer
+      operationId: getUpcomingEvents
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/UpcomingAstronomicalEventType'
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+      responses:
+        '200':
+          description: Normalized observer events. Cache freshness is exposed in metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpcomingEventsResponse'
+        '400':
+          description: Invalid period, type or observer coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Provider unavailable and no valid cache exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /conditions/forecast:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Conditions]
+      summary: Get hourly weather estimates for the next seven days
+      operationId: getConditionsForecast
+      parameters:
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+      responses:
+        '200':
+          description: Hourly weather estimates and assessment factors for the forecast horizon.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentConditionsForecastResponse'
+        '400':
+          description: Invalid observer coordinates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Weather forecast provider unavailable or returned no hourly samples.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /conditions/current:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Conditions]
+      summary: Get weather conditions for the current or a future observation time
+      operationId: getCurrentConditions
+      parameters:
+        - {
+            name: latitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -90, maximum: 90 },
+          }
+        - {
+            name: longitudeDegrees,
+            in: query,
+            required: true,
+            schema: { type: number, minimum: -180, maximum: 180 },
+          }
+        - {
+            name: elevationMeters,
+            in: query,
+            schema: { type: number, minimum: -500, maximum: 10000, default: 0 },
+          }
+        - name: at
+          in: query
+          description: >
+            Optional future local selection represented as an ISO 8601 instant.
+            The API evaluates the nearest hourly forecast sample, up to seven days ahead.
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: >
+            Hourly weather estimate. observedAt identifies the forecast sample time, not a
+            real-time measurement at the observer location.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentConditionsResponse'
+        '400':
+          description: Invalid observer coordinates or a requested time outside the next seven days.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Weather provider unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /learning/tracks:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List published learning tracks
+      operationId: listLearningTracks
+      responses:
+        '200':
+          description: Published learning tracks ordered by sort order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTracksResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/InternalServerError'
+  /learning/tracks/{trackId}/lessons:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List published lessons for a learning track
+      operationId: listLearningLessons
+      parameters:
+        - { name: trackId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Published lessons ordered by sort order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonsResponse'
+        '400':
+          description: Track identifier is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /learning/progress:
+    get:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: List the authenticated user's lesson progress
+      operationId: listLearningProgress
+      responses:
+        '200':
+          description: Progress records for the authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgressListResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /learning/lessons/{lessonId}/progress:
+    put:
+      security:
+        - bearerAuth: []
+      tags: [Learning]
+      summary: Create or update the authenticated user's progress for a lesson
+      operationId: upsertLearningProgress
+      parameters:
+        - { name: lessonId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertLessonProgressRequest'
+      responses:
+        '200':
+          description: Progress saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgressResponse'
+        '400':
+          description: Lesson identifier or progress payload is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session access token issued through the VeronicaLens API.
+  responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ObservationPhotoMetadata:
+      type: object
+      additionalProperties: false
+      required: [title, notes, capturedAt, device, parameters]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        notes: { type: string, maxLength: 4000 }
+        capturedAt: { type: string, format: date-time }
+        astronomicalEventId: { type: [string, 'null'], format: uuid }
+        celestialObjectName: { type: [string, 'null'], minLength: 1, maxLength: 160 }
+        latitude: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        longitude: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        device:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id: { type: string, minLength: 1, maxLength: 160 }
+            name: { type: string, minLength: 1, maxLength: 160 }
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Applied focus, exposure, ISO and fallback parameters.
+    ObservationPhoto:
+      type: object
+      additionalProperties: false
+      required: [observationId, photoId, storagePath, capturedAt]
+      properties:
+        observationId: { type: string, format: uuid }
+        photoId: { type: string, format: uuid }
+        storagePath: { type: string, minLength: 1, maxLength: 1024 }
+        capturedAt: { type: string, format: date-time }
+    ObservationPhotoResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/ObservationPhoto' }
+    ObservationHistoryPhoto:
+      type: object
+      additionalProperties: false
+      required: [id, storagePath, capturedAt, thumbnailUrl, capture]
+      properties:
+        id: { type: string, format: uuid }
+        storagePath: { type: string, minLength: 1, maxLength: 1024 }
+        capturedAt: { type: [string, 'null'], format: date-time }
+        thumbnailUrl:
+          type: [string, 'null']
+          format: uri
+          description: Short-lived signed URL for the authenticated user's private media.
+        capture:
+          oneOf:
+            - $ref: '#/components/schemas/ObservationCaptureSummary'
+            - type: 'null'
+          description: Device and settings recorded when the photo was taken; null for older photos.
+    ObservationCaptureSummary:
+      type: object
+      additionalProperties: false
+      description: Capture settings summary. Null values mean automatic or not recorded.
+      required:
+        [
+          deviceName,
+          iso,
+          exposureTimeSeconds,
+          exposureCompensationEv,
+          focusMode,
+          focusLensPosition,
+          whiteBalanceKelvin,
+        ]
+      properties:
+        deviceName: { type: [string, 'null'] }
+        iso: { type: [number, 'null'] }
+        exposureTimeSeconds: { type: [number, 'null'] }
+        exposureCompensationEv: { type: [number, 'null'] }
+        focusMode: { type: [string, 'null'] }
+        focusLensPosition: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        whiteBalanceKelvin: { type: [number, 'null'] }
+    ObservationHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, notes, celestialObjectName, observedAt, latitude, longitude, photos]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        notes: { type: string, maxLength: 4000 }
+        celestialObjectName: { type: [string, 'null'], minLength: 1, maxLength: 160 }
+        observedAt: { type: string, format: date-time }
+        latitude: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        longitude: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/ObservationHistoryPhoto' }
+    DeleteObservationPhotoResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [observationDeleted]
+          properties:
+            observationDeleted: { type: boolean }
+    ObservationHistoryResponse:
+      type: object
+      additionalProperties: false
+      required: [data, page, pageSize, hasMore]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ObservationHistoryItem' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 50 }
+        hasMore: { type: boolean }
+    EventPreference:
+      type: object
+      additionalProperties: false
+      required: [eventType, enabled, leadMinutes]
+      properties:
+        eventType: { type: string, minLength: 1, maxLength: 80 }
+        enabled: { type: boolean }
+        leadMinutes: { type: integer, minimum: 0, maximum: 43200 }
+    NotificationPreferencesRequest:
+      type: object
+      additionalProperties: false
+      required: [preferences]
+      properties:
+        preferences:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { $ref: '#/components/schemas/EventPreference' }
+    NotificationPreferencesResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/EventPreference' }
+    PushDevicePlatform:
+      type: string
+      enum: [android, ios]
+    PushDeviceRequest:
+      type: object
+      additionalProperties: false
+      required: [token, platform]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 512 }
+        platform: { $ref: '#/components/schemas/PushDevicePlatform' }
+    PushDeviceTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 512 }
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        details: {}
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, checkedAt, database]
+      properties:
+        status:
+          type: string
+          const: ok
+        checkedAt:
+          type: string
+          format: date-time
+        database:
+          type: string
+          enum: [not_checked]
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Health'
+    SupabaseConnectivity:
+      type: object
+      additionalProperties: false
+      required: [provider, status]
+      properties:
+        provider:
+          type: string
+          const: supabase
+        status:
+          type: string
+          enum: [available, maintenance]
+    SupabaseConnectivityResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/SupabaseConnectivity'
+    UserRole:
+      type: string
+      enum: [user, admin]
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName, avatarUrl, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        role:
+          $ref: '#/components/schemas/UserRole'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MeasurementUnit:
+      type: string
+      enum: [metric, imperial]
+    AppLanguage:
+      type: string
+      enum: [pt-BR, en]
+    Profile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - avatarUrl
+        - locationName
+        - latitude
+        - longitude
+        - notificationsEnabled
+        - measurementUnit
+        - language
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        locationName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        notificationsEnabled:
+          type: boolean
+        measurementUnit:
+          $ref: '#/components/schemas/MeasurementUnit'
+        language:
+          $ref: '#/components/schemas/AppLanguage'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+        locationName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        notificationsEnabled:
+          type: boolean
+        measurementUnit:
+          $ref: '#/components/schemas/MeasurementUnit'
+        language:
+          $ref: '#/components/schemas/AppLanguage'
+    ProfileResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Profile'
+    CatalogObjectType:
+      type: string
+      enum: [moon, planet, star, constellation]
+    FixedCatalogCoordinates:
+      type: object
+      additionalProperties: false
+      required: [kind, epoch, rightAscensionDegrees, declinationDegrees]
+      properties:
+        kind:
+          type: string
+          const: fixed
+        epoch:
+          type: string
+          const: J2000
+        rightAscensionDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+        declinationDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+    EphemerisCatalogCoordinates:
+      type: object
+      additionalProperties: false
+      required: [kind, provider, providerObjectId]
+      properties:
+        kind:
+          type: string
+          const: ephemeris
+        provider:
+          type: string
+          const: jpl-horizons
+        providerObjectId:
+          type: string
+          minLength: 1
+          maxLength: 100
+    CatalogCoordinates:
+      oneOf:
+        - $ref: '#/components/schemas/FixedCatalogCoordinates'
+        - $ref: '#/components/schemas/EphemerisCatalogCoordinates'
+      discriminator:
+        propertyName: kind
+    CelestialObject:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, aliases, magnitude, coordinates]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        type:
+          $ref: '#/components/schemas/CatalogObjectType'
+        aliases:
+          type: array
+          items:
+            type: string
+        magnitude:
+          type: [number, 'null']
+        coordinates:
+          $ref: '#/components/schemas/CatalogCoordinates'
+    CatalogMeta:
+      type: object
+      additionalProperties: false
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+    CatalogResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CelestialObject'
+        meta:
+          $ref: '#/components/schemas/CatalogMeta'
+    SkyGuideObserver:
+      type: object
+      additionalProperties: false
+      required: [latitudeDegrees, longitudeDegrees]
+      properties:
+        latitudeDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitudeDegrees:
+          type: number
+          minimum: -180
+          maximum: 180
+        elevationMeters:
+          type: number
+          minimum: -500
+          maximum: 10000
+          default: 0
+    SkyGuidePositionsRequest:
+      type: object
+      additionalProperties: false
+      required: [objectIds, observedAt, observer]
+      properties:
+        objectIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+        observedAt:
+          type: string
+          format: date-time
+        observer:
+          $ref: '#/components/schemas/SkyGuideObserver'
+    HorizontalCoordinates:
+      type: object
+      additionalProperties: false
+      required: [altitudeDegrees, azimuthDegrees]
+      properties:
+        altitudeDegrees:
+          type: number
+          minimum: -90
+          maximum: 90
+        azimuthDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+    SkyGuideObjectPosition:
+      type: object
+      additionalProperties: false
+      required: [id, name, type, magnitude, observedAt, horizontal]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        type:
+          $ref: '#/components/schemas/CatalogObjectType'
+        magnitude:
+          type: [number, 'null']
+        observedAt:
+          type: string
+          format: date-time
+        horizontal:
+          $ref: '#/components/schemas/HorizontalCoordinates'
+    SkyGuidePositionsMeta:
+      type: object
+      additionalProperties: false
+      required: [count, unavailableObjectIds]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        unavailableObjectIds:
+          type: array
+          items:
+            type: string
+    SkyGuidePositionsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkyGuideObjectPosition'
+        meta:
+          $ref: '#/components/schemas/SkyGuidePositionsMeta'
+    ObservationRecommendationRequest:
+      type: object
+      additionalProperties: false
+      required: [objectId, windowFrom, windowTo, observer]
+      properties:
+        objectId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        windowFrom:
+          type: string
+          format: date-time
+        windowTo:
+          type: string
+          format: date-time
+          description: Must be after windowFrom and no more than 24 hours later.
+        observer:
+          $ref: '#/components/schemas/SkyGuideObserver'
+        minimumAltitudeDegrees:
+          type: number
+          minimum: 0
+          maximum: 90
+          default: 30
+    VisibilityFactor:
+      type: object
+      additionalProperties: false
+      required: [code, status, summary]
+      properties:
+        code:
+          type: string
+          enum: [altitude, moon, weather]
+        status:
+          type: string
+          enum: [favorable, unfavorable, unavailable]
+        summary:
+          type: string
+          minLength: 1
+        metrics:
+          type: object
+          additionalProperties: { type: number }
+          description: Structured numeric metrics backing the summary, keyed by metric name.
+    RecommendedObservationWindow:
+      type: object
+      additionalProperties: false
+      required: [from, to, consideredAt]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        consideredAt:
+          type: string
+          format: date-time
+    ObservationRecommendationMeta:
+      type: object
+      additionalProperties: false
+      required: [evaluatedSamples, sampleIntervalMinutes, weatherAvailable]
+      properties:
+        evaluatedSamples:
+          type: integer
+          minimum: 0
+        sampleIntervalMinutes:
+          type: integer
+          minimum: 1
+        weatherAvailable:
+          type: boolean
+    ObservationRecommendation:
+      type: object
+      additionalProperties: false
+      required: [objectId, objectName, status, recommendedWindow, factors, summary, meta]
+      properties:
+        objectId:
+          type: string
+        objectName:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [recommended, no_favorable_window, insufficient_data]
+        recommendedWindow:
+          oneOf:
+            - $ref: '#/components/schemas/RecommendedObservationWindow'
+            - type: 'null'
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisibilityFactor'
+        summary:
+          type: string
+          minLength: 1
+        meta:
+          $ref: '#/components/schemas/ObservationRecommendationMeta'
+    ObservationRecommendationResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/ObservationRecommendation'
+    ObservationRating:
+      type: string
+      enum: [good, fair, poor]
+    CurrentConditions:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          requestedAt,
+          observedAt,
+          fetchedAt,
+          temperatureCelsius,
+          relativeHumidityPercent,
+          cloudCoverPercent,
+          precipitationProbabilityPercent,
+          precipitationMillimeters,
+          visibilityMeters,
+          windSpeedKilometersPerHour,
+          rating,
+          factors,
+          skyLabel,
+          visibilityLabel,
+        ]
+      properties:
+        requestedAt:
+          type: string
+          format: date-time
+        observedAt:
+          type: string
+          format: date-time
+          description: Time of the hourly forecast sample used; this is not an on-site observation.
+        fetchedAt:
+          type: string
+          format: date-time
+        temperatureCelsius:
+          type: number
+        relativeHumidityPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        cloudCoverPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        precipitationProbabilityPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        precipitationMillimeters:
+          type: number
+          minimum: 0
+        visibilityMeters:
+          type: number
+          minimum: 0
+        windSpeedKilometersPerHour:
+          type: number
+          minimum: 0
+        rating:
+          $ref: '#/components/schemas/ObservationRating'
+        factors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrentConditionsFactor'
+        skyLabel:
+          type: string
+        visibilityLabel:
+          type: string
+    CurrentConditionsFactor:
+      type: object
+      additionalProperties: false
+      required: [code, status, summary]
+      properties:
+        code:
+          type: string
+          enum: [cloud-cover, precipitation, visibility, wind, humidity]
+        status:
+          type: string
+          enum: [good, caution, poor]
+        summary:
+          type: string
+    CurrentConditionsForecast:
+      type: object
+      additionalProperties: false
+      required: [from, to, fetchedAt, hourly]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        fetchedAt:
+          type: string
+          format: date-time
+        hourly:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrentConditions'
+    CurrentConditionsForecastResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/CurrentConditionsForecast'
+    CurrentConditionsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/CurrentConditions'
+    LearningTrack:
+      type: object
+      additionalProperties: false
+      required: [id, slug, title, description, sortOrder]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        description: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+    LearningTracksResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LearningTrack'
+    Lesson:
+      type: object
+      additionalProperties: false
+      required: [id, trackId, slug, title, content, sortOrder]
+      properties:
+        id: { type: string, format: uuid }
+        trackId: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        content: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+    LessonsResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lesson'
+    LearningProgressStatus:
+      type: string
+      enum: [not_started, in_progress, completed]
+    LessonProgress:
+      type: object
+      additionalProperties: false
+      required: [lessonId, status, progressPercent, completedAt]
+      properties:
+        lessonId: { type: string, format: uuid }
+        status:
+          $ref: '#/components/schemas/LearningProgressStatus'
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+        completedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+    LessonProgressResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/LessonProgress'
+    LessonProgressListResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LessonProgress'
+    UpsertLessonProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [status, progressPercent]
+      properties:
+        status:
+          $ref: '#/components/schemas/LearningProgressStatus'
+        progressPercent: { type: integer, minimum: 0, maximum: 100 }
+    UpcomingAstronomicalEventType:
+      type: string
+      enum: [rise, transit, set]
+    UpcomingAstronomicalEvent:
+      type: object
+      additionalProperties: false
+      required: [id, type, objectIds, startsAt, title, description]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: '#/components/schemas/UpcomingAstronomicalEventType'
+        objectIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        startsAt:
+          type: string
+          format: date-time
+        peaksAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+    UpcomingEventsMeta:
+      type: object
+      additionalProperties: false
+      required: [count, source, stale, updatedAt]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum: [provider, cache]
+        stale:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+    UpcomingEventsResponse:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingAstronomicalEvent'
+        meta:
+          $ref: '#/components/schemas/UpcomingEventsMeta'
+    AstronomicalEvent:
+      type: object
+      additionalProperties: false
+      required:
+        [id, slug, title, description, eventType, celestialObjectName, startsAt, endsAt, published]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+        eventType:
+          type: string
+          minLength: 1
+          maxLength: 80
+        celestialObjectName:
+          type: [string, 'null']
+          maxLength: 160
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+        published:
+          type: boolean
+    Observation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - userId
+        - astronomicalEventId
+        - title
+        - notes
+        - celestialObjectName
+        - observedAt
+        - latitude
+        - longitude
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        astronomicalEventId:
+          type: [string, 'null']
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        notes:
+          type: string
+        celestialObjectName:
+          type: [string, 'null']
+          maxLength: 160
+        observedAt:
+          type: string
+          format: date-time
+        latitude:
+          type: [number, 'null']
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: [number, 'null']
+          minimum: -180
+          maximum: 180
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Session:
+      type: object
+      additionalProperties: false
+      required: [id, user, accessToken, refreshToken, tokenType, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+          minLength: 1
+          readOnly: true
+        refreshToken:
+          type: string
+          minLength: 1
+          readOnly: true
+        tokenType:
+          type: string
+          const: bearer
+        expiresAt:
+          type: string
+          format: date-time
+    SignUpRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+    SignInRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          writeOnly: true
+    RefreshSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+    GoogleSignInRequest:
+      type: object
+      additionalProperties: false
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+        nonce:
+          type: string
+          minLength: 1
+          writeOnly: true
+    PasswordRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    PasswordUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+    SignUpResult:
+      type: object
+      additionalProperties: false
+      required: [user, session, confirmationRequired]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          oneOf:
+            - $ref: '#/components/schemas/Session'
+            - type: 'null'
+        confirmationRequired:
+          type: boolean
+    SignUpResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/SignUpResult'
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Session'
+    Message:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+    MessageResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Message'
+    NotificationType:
+      type: string
+      enum: [astronomical_event, observation_reminder, system]
+    NotificationStatus:
+      type: string
+      enum: [scheduled, sent, read, failed]
+    Notification:
+      type: object
+      additionalProperties: false
+      required:
+        [id, userId, type, status, title, body, astronomicalEventId, scheduledAt, sentAt, readAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        status:
+          $ref: '#/components/schemas/NotificationStatus'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        astronomicalEventId:
+          type: [string, 'null']
+          format: uuid
+        scheduledAt:
+          type: [string, 'null']
+          format: date-time
+        sentAt:
+          type: [string, 'null']
+          format: date-time
+        readAt:
+          type: [string, 'null']
+          format: date-time

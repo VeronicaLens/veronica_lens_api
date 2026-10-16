@@ -1,0 +1,45 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  HOST: z.string().default('0.0.0.0'),
+  PORT: z.coerce.number().int().positive().max(65_535).default(3000),
+  CORS_ORIGIN: z.string().min(1).default('http://localhost:8081'),
+  SUPABASE_URL: z.url(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
+  SUPABASE_SECRET_KEY: z.string().min(1).optional(),
+  PASSWORD_RESET_REDIRECT_URL: z.url().default('veronicalens://auth/reset-password'),
+  BACKGROUND_JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  NOTIFICATION_DISPATCH_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(60).default(5),
+  EVENT_SYNC_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  EVENT_SYNC_LATITUDE: z.coerce.number().min(-90).max(90).default(-23.5505),
+  EVENT_SYNC_LONGITUDE: z.coerce.number().min(-180).max(180).default(-46.6333),
+  EVENT_SYNC_ELEVATION: z.coerce.number().min(-500).max(10_000).default(760),
+  EVENT_SYNC_DAYS: z.coerce.number().int().min(1).max(31).default(31),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+let cachedEnv: Env | undefined;
+
+export function getEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  if (source === process.env && cachedEnv) {
+    return cachedEnv;
+  }
+
+  const result = envSchema.safeParse(source);
+
+  if (!result.success) {
+    const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
+    throw new Error(`Invalid environment configuration: ${fields}`);
+  }
+
+  if (source === process.env) {
+    cachedEnv = result.data;
+  }
+
+  return result.data;
+}

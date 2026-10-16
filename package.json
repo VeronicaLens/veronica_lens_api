@@ -1,0 +1,58 @@
+{
+  "name": "veronica_lens_api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "contract:lint": "redocly lint openapi/openapi.yaml --config redocly.yaml",
+    "validate": "npm run contract:lint && npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build",
+    "supabase:start": "supabase start",
+    "supabase:status": "supabase status",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset --local",
+    "supabase:lint": "supabase db lint --local",
+    "supabase:test": "supabase test db",
+    "auth:verify:local": "npm run build && node scripts/verify-auth-local.mjs",
+    "events:sync": "tsx src/jobs/sync-astronomical-events.ts",
+    "notifications:dispatch": "tsx src/jobs/dispatch-push-notifications.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.4",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "helmet": "8.3.0",
+    "pino-http": "11.0.0",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@redocly/cli": "2.51.2",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "26.4.0",
+    "@types/supertest": "7.2.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.6",
+    "supabase": "2.116.0",
+    "supertest": "7.2.2",
+    "tsx": "4.23.13",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}
