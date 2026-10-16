@@ -12,14 +12,26 @@ export const observationPhotoMetadataSchema = z.object({
   longitude: z.number().min(-180).max(180).nullable().optional(),
   device: z.object({ id: z.string().min(1).max(160), name: z.string().min(1).max(160) }),
   parameters: z.object({
-    focusMode: z.enum(['center-metering', 'automatic']),
+    focusMode: z.enum(['center-metering', 'automatic', 'manual']),
     exposureMode: z.enum(['manual', 'automatic-metering', 'automatic']),
     exposureCompensationEv: z.number().finite(),
     iso: automaticNumber,
     exposureTimeSeconds: automaticNumber,
+    focusLensPosition: z.union([z.number().min(0).max(1), z.literal('automatic')]).optional(),
+    whiteBalanceKelvin: z
+      .union([z.number().min(1_000).max(15_000), z.literal('automatic')])
+      .optional(),
     fallbacks: z
-      .array(z.enum(['focus-metering', 'manual-exposure', 'exposure-compensation']))
-      .max(3),
+      .array(
+        z.enum([
+          'focus-metering',
+          'manual-exposure',
+          'exposure-compensation',
+          'manual-focus',
+          'white-balance',
+        ]),
+      )
+      .max(5),
   }),
 });
 

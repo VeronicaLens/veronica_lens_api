@@ -104,6 +104,48 @@ describe('observation photo routes', () => {
     );
   });
 
+  it('accepts manual focus and white balance capture parameters', async () => {
+    const savePhoto = vi.fn<ObservationsModelPort['savePhoto']>().mockResolvedValue({
+      observationId: '71000000-0000-4000-8000-000000000001',
+      photoId: '71000000-0000-4000-8000-000000000002',
+      storagePath: 'user-id/observation/photo.jpg',
+      capturedAt: metadata.capturedAt,
+    });
+    const manualMetadata = {
+      ...metadata,
+      parameters: {
+        ...metadata.parameters,
+        focusMode: 'manual',
+        exposureMode: 'manual',
+        iso: 800,
+        exposureTimeSeconds: 0.5,
+        focusLensPosition: 1,
+        whiteBalanceKelvin: 4_000,
+        fallbacks: ['white-balance'],
+      },
+    };
+
+    const response = await request(
+      createApp({
+        enableLogger: false,
+        authenticateHandler: authenticate,
+        observationsModel: { list: vi.fn(), savePhoto },
+      }),
+    )
+      .put(
+        '/api/v1/observations/71000000-0000-4000-8000-000000000001/photos/71000000-0000-4000-8000-000000000002',
+      )
+      .set('content-type', 'image/jpeg')
+      .set('x-veronica-observation', encodeURIComponent(JSON.stringify(manualMetadata)))
+      .send(Buffer.from('photo'));
+
+    expect(response.status).toBe(200);
+    expect(savePhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ metadata: manualMetadata }),
+    );
+  });
+
   it('rejects missing metadata and empty photos', async () => {
     const response = await request(
       createApp({
