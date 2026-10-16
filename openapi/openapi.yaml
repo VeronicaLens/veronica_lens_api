@@ -614,6 +614,82 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: Delete an astrophoto and remove its observation when no photos remain
+      operationId: deleteObservationPhoto
+      parameters:
+        - name: observationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Photo deleted; reports whether the empty observation was removed too.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeleteObservationPhotoResponse' }
+        '400':
+          description: Photo identifiers are invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The photo does not exist or belongs to another user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Storage is temporarily unavailable; the client may retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /observations/{observationId}:
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Observations]
+      summary: Delete an observation and all of its photos
+      operationId: deleteObservation
+      parameters:
+        - name: observationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Observation and its photos deleted.
+        '400':
+          description: Observation identifier is invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The observation does not exist or belongs to another user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: Storage is temporarily unavailable; the client may retry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /events:
     get:
       security:
@@ -992,6 +1068,17 @@ components:
         photos:
           type: array
           items: { $ref: '#/components/schemas/ObservationHistoryPhoto' }
+    DeleteObservationPhotoResponse:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [observationDeleted]
+          properties:
+            observationDeleted: { type: boolean }
     ObservationHistoryResponse:
       type: object
       additionalProperties: false

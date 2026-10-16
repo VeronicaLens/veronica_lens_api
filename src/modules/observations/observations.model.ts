@@ -78,15 +78,106 @@ interface ObservationHistoryRow {
   }> | null;
 }
 
+export interface DeleteObservationPhotoInput {
+  observationId: string;
+  photoId: string;
+  userId: string;
+}
+
+export interface DeleteObservationInput {
+  observationId: string;
+  userId: string;
+}
+
+export interface DeleteObservationPhotoResult {
+  observationDeleted: boolean;
+}
+
 export interface ObservationsModelPort {
   list(client: SupabaseClient, input: ListObservationHistoryInput): Promise<ObservationHistoryPage>;
   savePhoto(
     client: SupabaseClient,
     input: SaveObservationPhotoInput,
   ): Promise<ObservationPhotoResult>;
+  deletePhoto(
+    client: SupabaseClient,
+    input: DeleteObservationPhotoInput,
+  ): Promise<DeleteObservationPhotoResult>;
+  deleteObservation(client: SupabaseClient, input: DeleteObservationInput): Promise<void>;
 }
 
 export class SupabaseObservationsModel implements ObservationsModelPort {
+  /**
+   * Removes the stored file before the database row, so a failed attempt can be retried and
+   * never leaves an orphaned file. An observation left without media is removed as well.
+   */
+  async deletePhoto(
+    client: SupabaseClient,
+    input: DeleteObservationPhotoInput,
+  ): Promise<DeleteObservationPhotoResult> {
+    const { data: media, error } = await client
+      .from('observation_media')
+      .select('id, storage_path')
+      .eq('id', input.photoId)
+      .eq('observation_id', input.observationId)
+      .eq('user_id', input.userId)
+      .maybeSingle();
+    if (error) throw providerError('Astrophoto could not be deleted');
+    if (!media) throw notFound('Astrophoto was not found');
+
+    const { error: storageError } = await client.storage
+      .from('observations')
+      .remove([(media as { storage_path: string }).storage_path]);
+    if (storageError) throw providerError('Astrophoto could not be deleted');
+
+    const { error: mediaError } = await client
+      .from('observation_media')
+      .delete()
+      .eq('id', input.photoId)
+      .eq('user_id', input.userId);
+    if (mediaError) throw providerError('Astrophoto could not be deleted');
+
+    const { count, error: countError } = await client
+      .from('observation_media')
+      .select('id', { count: 'exact', head: true })
+      .eq('observation_id', input.observationId)
+      .eq('user_id', input.userId);
+    if (countError || (count ?? 0) > 0) return { observationDeleted: false };
+
+    const { error: observationError } = await client
+      .from('observations')
+      .delete()
+      .eq('id', input.observationId)
+      .eq('user_id', input.userId);
+    return { observationDeleted: !observationError };
+  }
+
+  async deleteObservation(client: SupabaseClient, input: DeleteObservationInput): Promise<void> {
+    const { data: observation, error } = await client
+      .from('observations')
+      .select('id, observation_media(storage_path)')
+      .eq('id', input.observationId)
+      .eq('user_id', input.userId)
+      .maybeSingle();
+    if (error) throw providerError('Observation could not be deleted');
+    if (!observation) throw notFound('Observation was not found');
+
+    const paths = (
+      (observation as { observation_media: Array<{ storage_path: string }> | null })
+        .observation_media ?? []
+    ).map((media) => media.storage_path);
+    if (paths.length > 0) {
+      const { error: storageError } = await client.storage.from('observations').remove(paths);
+      if (storageError) throw providerError('Observation could not be deleted');
+    }
+
+    const { error: deleteError } = await client
+      .from('observations')
+      .delete()
+      .eq('id', input.observationId)
+      .eq('user_id', input.userId);
+    if (deleteError) throw providerError('Observation could not be deleted');
+  }
   async list(
     client: SupabaseClient,
     input: ListObservationHistoryInput,
@@ -242,4 +333,8 @@ function extension(contentType: string): string {
 
 function providerError(message: string): AppError {
   return new AppError(503, 'OBSERVATION_STORAGE_UNAVAILABLE', message);
+}
+
+function notFound(message: string): AppError {
+  return new AppError(404, 'OBSERVATION_NOT_FOUND', message);
 }

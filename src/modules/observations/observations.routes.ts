@@ -6,6 +6,7 @@ import { asyncHandler } from '../../shared/http/async-handler.js';
 import { SupabaseObservationsModel, type ObservationsModelPort } from './observations.model.js';
 import {
   observationHistoryQuerySchema,
+  observationParamsSchema,
   observationPhotoMetadataSchema,
   observationPhotoParamsSchema,
 } from './observations.schemas.js';
@@ -67,6 +68,38 @@ export function createObservationsRouter(
         metadata: metadata.data,
       });
       response.status(200).json({ data });
+    }),
+  );
+  router.delete(
+    '/:observationId/photos/:photoId',
+    authenticateHandler,
+    asyncHandler(async (request, response) => {
+      if (!request.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required');
+      const params = observationPhotoParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Observation photo request is invalid');
+      }
+      const data = await model.deletePhoto(request.auth.supabase, {
+        ...params.data,
+        userId: request.auth.userId,
+      });
+      response.status(200).json({ data });
+    }),
+  );
+  router.delete(
+    '/:observationId',
+    authenticateHandler,
+    asyncHandler(async (request, response) => {
+      if (!request.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication is required');
+      const params = observationParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Observation request is invalid');
+      }
+      await model.deleteObservation(request.auth.supabase, {
+        ...params.data,
+        userId: request.auth.userId,
+      });
+      response.status(204).end();
     }),
   );
   return router;
