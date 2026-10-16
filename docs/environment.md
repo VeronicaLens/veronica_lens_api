@@ -76,6 +76,17 @@ A API falha antes de abrir a porta quando a configuração obrigatória é invá
 os nomes dos campos. Valores e respostas internas do Supabase não são incluídos em logs ou respostas
 HTTP. Após rotacionar uma chave, atualize o secret manager e reinicie as instâncias da API.
 
+## Deploy no Render
+
+O arquivo `render.yaml` descreve o serviço web (build `npm ci && npm run build`, start `npm start`,
+health check `/health`). Os valores `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e
+`SUPABASE_SECRET_KEY` são `sync: false`: informe-os no painel do Render. Como o sincronismo de
+eventos e o envio de push rodam dentro do processo, use um plano que não suspenda o serviço por
+inatividade; no plano gratuito esses jobs param. Rode também a API em uma única instância.
+
+A exclusão de conta (`DELETE /api/v1/profile`) usa a secret key para remover arquivos do Storage e
+o usuário em `auth.users`; as demais tabelas são removidas por `on delete cascade`.
+
 ## Checklist
 
 - Restringir acesso aos secrets de produção por ambiente.

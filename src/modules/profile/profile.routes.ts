@@ -16,6 +16,7 @@ export function createProfileRouter(
   const router = Router();
   router.get('/', authenticateHandler, asyncHandler(controller.get));
   router.patch('/', authenticateHandler, asyncHandler(controller.update));
+  router.delete('/', authenticateHandler, asyncHandler(controller.delete));
   router.put(
     '/avatar',
     authenticateHandler,
