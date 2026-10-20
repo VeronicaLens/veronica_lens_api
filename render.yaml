@@ -2,11 +2,10 @@ services:
   - type: web
     name: veronica-lens-api
     runtime: node
-    # Jobs de sincronização e push rodam dentro do processo; o plano gratuito suspende o serviço
-    # por inatividade e interrompe esses jobs. Use um plano que não durma (starter ou superior).
-    plan: starter
+    # O plano gratuito suspende por inatividade; jobs precisam de agendamento externo.
+    plan: free
     region: virginia
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
@@ -18,7 +17,7 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: BACKGROUND_JOBS_ENABLED
-        value: 'true'
+        value: 'false'
       - key: CORS_ORIGIN
         value: https://veronicalens.github.io
       - key: PASSWORD_RESET_REDIRECT_URL
