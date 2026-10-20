@@ -47,6 +47,10 @@ function requireProfile(result: Awaited<ReturnType<ProfileModelPort['findByUserI
 export class ProfileService {
   constructor(private readonly model: ProfileModelPort) {}
 
+  async deleteAccount(userId: string): Promise<void> {
+    await this.model.deleteAccount(userId);
+  }
+
   async get(client: SupabaseClient, userId: string) {
     return requireProfile(await this.model.findByUserId(client, userId));
   }

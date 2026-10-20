@@ -295,6 +295,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      security:
+        - bearerAuth: []
+      tags: [Profile]
+      summary: Permanently delete the authenticated user's account and all associated data
+      description: >-
+        Removes photos and avatar from storage, then deletes the account. Profile, observations,
+        learning progress, devices and notification history are removed with it. Irreversible.
+      operationId: deleteAccount
+      responses:
+        '204':
+          description: Account and associated data deleted.
+        '401':
+          description: Access token is invalid or expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Deletion could not be completed; the account is kept and the client may retry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /profile/avatar:
     put:
       security:

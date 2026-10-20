@@ -35,6 +35,7 @@ function modelWith(overrides: Partial<ProfileModelPort> = {}): ProfileModelPort 
     findByUserId: vi.fn().mockResolvedValue({ data: row, error: null }),
     updateByUserId: vi.fn().mockResolvedValue({ data: row, error: null }),
     uploadAvatar: vi.fn().mockResolvedValue('https://cdn.test/avatars/user.jpg'),
+    deleteAccount: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -150,6 +151,46 @@ describe('profile routes', () => {
     expect(response.body).toMatchObject({
       data: { avatarUrl: 'https://cdn.test/avatars/user.jpg?v=1' },
     });  });
+
+  it('deletes the authenticated user account', async () => {
+    const deleteAccount = vi.fn().mockResolvedValue(undefined);
+    const response = await request(
+      createApp({
+        enableLogger: false,
+        authenticateHandler: authenticate,
+        profileModel: modelWith({ deleteAccount }),
+      }),
+    ).delete('/api/v1/profile');
+
+    expect(response.status).toBe(204);
+    expect(deleteAccount).toHaveBeenCalledWith(row.id);
+  });
+
+  it('keeps the account and reports a retryable error when deletion fails', async () => {
+    const { AppError } = await import('../src/shared/errors/app-error.js');
+    const deleteAccount = vi
+      .fn()
+      .mockRejectedValue(new AppError(503, 'ACCOUNT_DELETION_UNAVAILABLE', 'Account could not be deleted'));
+    const response = await request(
+      createApp({
+        enableLogger: false,
+        authenticateHandler: authenticate,
+        profileModel: modelWith({ deleteAccount }),
+      }),
+    ).delete('/api/v1/profile');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toMatchObject({ error: { code: 'ACCOUNT_DELETION_UNAVAILABLE' } });
+  });
+
+  it('requires authentication to delete an account', async () => {
+    const deleteAccount = vi.fn();
+    const response = await request(
+      createApp({ enableLogger: false, profileModel: modelWith({ deleteAccount }) }),
+    ).delete('/api/v1/profile');
+    expect(response.status).toBe(401);
+    expect(deleteAccount).not.toHaveBeenCalled();
+  });
 
   it('rejects an avatar upload with an unsupported content type', async () => {
     const response = await request(

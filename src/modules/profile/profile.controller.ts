@@ -30,6 +30,11 @@ export class ProfileController {
       .json({ data: await this.service.update(context.supabase, context.userId, parsed.data) });
   };
 
+  delete = async (request: Request, response: Response): Promise<void> => {
+    await this.service.deleteAccount(auth(request).userId);
+    response.status(204).send();
+  };
+
   uploadAvatar = async (request: Request, response: Response): Promise<void> => {
     const contentType = request.header('content-type')?.split(';')[0]?.trim().toLowerCase();
     const avatarTypes = ['image/jpeg', 'image/png', 'image/webp'];
