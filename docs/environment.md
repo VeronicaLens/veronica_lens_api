@@ -78,11 +78,15 @@ HTTP. Após rotacionar uma chave, atualize o secret manager e reinicie as instâ
 
 ## Deploy no Render
 
-O arquivo `render.yaml` descreve o serviço web (build `npm ci && npm run build`, start `npm start`,
-health check `/health`). Os valores `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e
-`SUPABASE_SECRET_KEY` são `sync: false`: informe-os no painel do Render. Como o sincronismo de
-eventos e o envio de push rodam dentro do processo, use um plano que não suspenda o serviço por
-inatividade; no plano gratuito esses jobs param. Rode também a API em uma única instância.
+O arquivo `render.yaml` descreve o serviço web gratuito (build `npm ci --include=dev && npm run build`,
+start `npm start`, health check `/health`). O build precisa das dependências de desenvolvimento,
+incluindo TypeScript e `@types/node`, mesmo com `NODE_ENV=production`. Em um serviço criado
+manualmente, configure esse mesmo Build Command no painel do Render.
+
+Os valores `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SECRET_KEY` são `sync: false`:
+informe-os no painel do Render. O plano gratuito suspende por inatividade, portanto
+`BACKGROUND_JOBS_ENABLED=false` e os jobs precisam de agendamento externo. O workflow diário
+existente sincroniza eventos, mas o envio periódico de push ainda precisa ser configurado.
 
 A exclusão de conta (`DELETE /api/v1/profile`) usa a secret key para remover arquivos do Storage e
 o usuário em `auth.users`; as demais tabelas são removidas por `on delete cascade`.
